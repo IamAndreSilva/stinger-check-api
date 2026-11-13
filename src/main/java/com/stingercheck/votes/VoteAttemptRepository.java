@@ -17,7 +17,12 @@ public interface VoteAttemptRepository extends JpaRepository<VoteAttempt, Long> 
     @Query(value = "SELECT 1 FROM pg_advisory_xact_lock(" + VoteAttempt.LOCK_NAMESPACE + ", hashtext(:ip))", nativeQuery = true)
     Integer lockIpAddress(@Param("ip") String ipAddress);
 
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    /** Caps how long the current transaction waits for a lock (SQLState 55P03 when exceeded). */
+    @Modifying
+    @Query(value = "SET LOCAL lock_timeout = '" + VoteAttempt.LOCK_TIMEOUT + "'", nativeQuery = true)
+    void limitLockWait();
+
+    @Modifying(flushAutomatically = true)
     @Query("UPDATE VoteAttempt a SET a.newAnonymousVote = true WHERE a.id = :id")
     int markNewAnonymousVote(@Param("id") Long id);
 

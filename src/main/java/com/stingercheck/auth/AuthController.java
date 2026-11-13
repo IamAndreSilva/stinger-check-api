@@ -1,6 +1,10 @@
 package com.stingercheck.auth;
 
 import jakarta.servlet.http.HttpServletRequest;
+import com.stingercheck.common.ConcurrentChangeException;
+import com.stingercheck.common.SqlStates;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +15,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     private final UserRepository userRepository;
     private final AccountService accountService;
@@ -57,9 +63,21 @@ public class AuthController {
         try {
             accountService.claimAnonymousVotes(oauthUser.getName(), anonymousToken);
         } catch (DataIntegrityViolationException e) {
+            if (!SqlStates.has(e, SqlStates.UNIQUE_VIOLATION)) {
+                throw e;
+            }
+
             // The user voted on one of these movies while signed in at the same moment. Once
             // that vote is committed, a retry skips the movie (their signed-in vote wins).
-            accountService.claimAnonymousVotes(oauthUser.getName(), anonymousToken);
+            log.debug("Claiming anonymous votes raced a signed-in vote; retrying");
+            try {
+                accountService.claimAnonymousVotes(oauthUser.getName(), anonymousToken);
+            } catch (DataIntegrityViolationException retryError) {
+                if (!SqlStates.has(retryError, SqlStates.UNIQUE_VIOLATION)) {
+                    throw retryError;
+                }
+                throw new ConcurrentChangeException(retryError);
+            }
         }
 
         return ResponseEntity.noContent().build();

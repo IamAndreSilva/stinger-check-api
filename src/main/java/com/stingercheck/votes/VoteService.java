@@ -1,13 +1,16 @@
 package com.stingercheck.votes;
 
 import com.stingercheck.auth.User;
+import com.stingercheck.common.SqlStates;
 import com.stingercheck.auth.UserRepository;
 import com.stingercheck.movies.TmdbClient;
+import org.springframework.dao.DataAccessException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.client.RestClientException;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -64,7 +67,13 @@ public class VoteService {
         Long attemptId = transactionTemplate.execute(status -> recordAttemptWithinHourlyLimit(ipAddress, tmdbMovieId));
 
         // Only real movies can be voted on; the lookup is cached.
-        tmdbClient.getMovie(tmdbMovieId);
+        try {
+            tmdbClient.getMovie(tmdbMovieId);
+        } catch (RestClientException e) {
+            // TMDB is down or slow (502): not the voter's fault, so give the hourly slot back.
+            releaseAttempt(attemptId);
+            throw e;
+        }
 
         return transactionTemplate.execute(status ->
                 storeVote(tmdbMovieId, hasStinger, anonymousToken, user, ipAddress, attemptId));
@@ -119,7 +128,7 @@ public class VoteService {
             return null;
         }
 
-        voteAttemptRepository.lockIpAddress(ipAddress);
+        lockIpAddress(ipAddress);
 
         long recent = voteAttemptRepository.countByIpAddressAndCreatedAtAfter(ipAddress, Instant.now().minus(HOUR));
         if (recent >= VOTES_PER_IP_PER_HOUR) {
@@ -139,7 +148,7 @@ public class VoteService {
         // Held until commit: a concurrent cast from the same IP waits here, then sees this
         // vote, so a double click counts as one new vote and parallel requests can't all pass.
         if (ipAddress != null) {
-            voteAttemptRepository.lockIpAddress(ipAddress);
+            lockIpAddress(ipAddress);
         }
 
         boolean newVote = !voteRepository.existsByTmdbMovieIdAndAnonymousToken(tmdbMovieId, anonymousToken);
@@ -154,6 +163,28 @@ public class VoteService {
         }
 
         return buildSummary(tmdbMovieId, anonymousToken, null);
+    }
+
+    // Waits at most VoteAttempt.LOCK_TIMEOUT; a longer queue means a flood from one IP.
+    private void lockIpAddress(String ipAddress) {
+        voteAttemptRepository.limitLockWait();
+
+        try {
+            voteAttemptRepository.lockIpAddress(ipAddress);
+        } catch (DataAccessException e) {
+            if (SqlStates.has(e, SqlStates.LOCK_NOT_AVAILABLE)) {
+                throw new RateLimitExceededException();
+            }
+            throw e;
+        }
+    }
+
+    private void releaseAttempt(Long attemptId) {
+        if (attemptId == null) {
+            return;
+        }
+
+        transactionTemplate.executeWithoutResult(status -> voteAttemptRepository.deleteById(attemptId));
     }
 
     private VoteSummaryDto buildSummary(Integer tmdbMovieId, String anonymousToken, UUID userId) {

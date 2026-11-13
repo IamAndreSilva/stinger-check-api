@@ -1,5 +1,6 @@
 package com.stingercheck;
 
+import com.stingercheck.movies.MovieNotFoundException;
 import com.stingercheck.movies.TmdbClient;
 import com.stingercheck.movies.TmdbMovieResult;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,9 +13,15 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.ResourceAccessException;
+import com.stingercheck.votes.VoteAttemptRepository;
+
+import java.time.Duration;
+import java.time.Instant;
 
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -30,12 +37,19 @@ class VoteRateLimitTests {
 
     private static final int MOVIE_ID = 999_401;
     private static final String VOTE_URL = "/api/movies/" + MOVIE_ID + "/votes";
+    private static final int UNKNOWN_MOVIE_ID = 999_402;
+    private static final int OUTAGE_MOVIE_ID = 999_403;
+    // MockMvc requests come from this address.
+    private static final String TEST_IP = "127.0.0.1";
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
     private TmdbClient tmdbClient;
+
+    @Autowired
+    private VoteAttemptRepository voteAttemptRepository;
 
     @BeforeEach
     void movieExists() {
@@ -74,6 +88,37 @@ class VoteRateLimitTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.verdict").value("UNKNOWN"))
                 .andExpect(jsonPath("$.total").value(1));
+    }
+
+    @Test
+    void voteForUnknownMovieUsesAnHourlySlot() throws Exception {
+        when(tmdbClient.getMovie(UNKNOWN_MOVIE_ID)).thenThrow(new MovieNotFoundException(UNKNOWN_MOVIE_ID));
+        long before = attemptsInLastHour();
+
+        voteOn(UNKNOWN_MOVIE_ID).andExpect(status().isNotFound());
+
+        assertThat(attemptsInLastHour()).isEqualTo(before + 1);
+    }
+
+    @Test
+    void tmdbOutageGivesTheSlotBack() throws Exception {
+        when(tmdbClient.getMovie(OUTAGE_MOVIE_ID)).thenThrow(new ResourceAccessException("timed out"));
+        long before = attemptsInLastHour();
+
+        voteOn(OUTAGE_MOVIE_ID).andExpect(status().isBadGateway());
+
+        assertThat(attemptsInLastHour()).isEqualTo(before);
+    }
+
+    private long attemptsInLastHour() {
+        return voteAttemptRepository.countByIpAddressAndCreatedAtAfter(TEST_IP, Instant.now().minus(Duration.ofHours(1)));
+    }
+
+    private ResultActions voteOn(int movieId) throws Exception {
+        return mockMvc.perform(post("/api/movies/" + movieId + "/votes")
+                .header("X-Anonymous-Token", UUID.randomUUID().toString())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"hasStinger\":true}"));
     }
 
     private ResultActions vote(String token, boolean hasStinger) throws Exception {

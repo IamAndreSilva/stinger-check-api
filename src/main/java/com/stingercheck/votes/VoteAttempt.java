@@ -13,7 +13,11 @@ import java.time.Instant;
 public class VoteAttempt {
 
     // First key of the per-IP advisory lock (see VoteAttemptRepository.lockIpAddress).
-    static final int LOCK_NAMESPACE = 1_727_384;
+    public static final int LOCK_NAMESPACE = 1_727_384;
+
+    // How long a cast waits for another cast from the same IP. Each one is short, so a longer
+    // wait means a flood; giving up keeps one client from holding many pooled connections.
+    static final String LOCK_TIMEOUT = "2s";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -34,11 +38,11 @@ public class VoteAttempt {
 
     protected VoteAttempt() {}
 
-    public Long getId() { return id; }
-
     public VoteAttempt(String ipAddress, Integer tmdbMovieId, boolean newAnonymousVote) {
         this.ipAddress = ipAddress;
         this.tmdbMovieId = tmdbMovieId;
         this.newAnonymousVote = newAnonymousVote;
     }
+
+    public Long getId() { return id; }
 }
