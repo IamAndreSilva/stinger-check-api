@@ -1,5 +1,9 @@
 package com.stingercheck;
 
+import com.stingercheck.movies.TmdbClient;
+import com.stingercheck.movies.TmdbMovieResult;
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -11,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -24,6 +30,15 @@ class VoteRequestValidationTests {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockitoBean
+    private TmdbClient tmdbClient;
+
+    // Votes are only accepted for movies TMDB knows.
+    @BeforeEach
+    void movieExists() {
+        when(tmdbClient.getMovie(anyInt())).thenReturn(new TmdbMovieResult(999_002, "Test Movie", "2024-01-01", null, null, null, null));
+    }
 
     @Test
     void voteIsRecorded() throws Exception {

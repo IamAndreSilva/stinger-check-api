@@ -68,16 +68,21 @@ The frontend is expected to run separately at `http://localhost:5173`.
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | `GET` | `/api/movies/search?q=` | public | Search movies via TMDB, annotated with current vote-based verdict |
-| `GET` | `/api/movies/{tmdbId}` | public | Movie details, vote summary and verdict |
-| `POST` | `/api/movies/{tmdbId}/votes` | public | Cast a vote (`{"hasStinger": true/false}`); identified by session (logged-in) or `X-Anonymous-Token` header |
+| `GET` | `/api/movies/now-playing` | public | Movies in cinemas now, with verdicts |
+| `GET` | `/api/movies/{tmdbId}` | public | Movie details, vote summary and verdict; 404 if TMDB doesn't know the id |
+| `POST` | `/api/movies/{tmdbId}/votes` | public | Cast or change a vote (`{"hasStinger": true/false}`); identified by session (logged-in) or `X-Anonymous-Token` header. Returns the new tallies and verdict |
 | `DELETE` | `/api/movies/{tmdbId}/votes` | public | Retract a vote |
-| `GET` | `/api/auth/me` | public | Current authenticated user, or `null` |
+| `GET` | `/api/auth/me` | public | Current authenticated user, or `204 No Content` when signed out |
+| `POST` | `/api/auth/me/claim-votes` | signed in | Move the anonymous votes of the `X-Anonymous-Token` browser to the account (the account's own vote wins) |
 | `POST` | `/api/auth/logout` | public | Log out |
 | `DELETE` | `/api/auth/me` | signed in | Delete the current account; its votes stay in the tallies but are anonymized |
-| `GET` | `/api/oauth2/authorization/google` | public | Start Google OAuth2 login; Google redirects back to `/api/login/oauth2/code/google` |
+| `GET` | `/api/oauth2/authorization/google?returnTo=/path` | public | Start Google OAuth2 login; after `/api/login/oauth2/code/google` the user returns to `returnTo` (a path on this site) |
+| `GET` | `/sitemap.xml` | public | Sitemap for search engines (home, privacy, now-playing and voted movies) |
 | `GET` | `/actuator/health` | public | Health check (liveness/readiness probes under `/actuator/health/{liveness,readiness}`) |
 
 Anonymous voting is tracked via an `X-Anonymous-Token` request header (client-generated); authenticated users vote via their OAuth2 session instead.
+
+Votes are rate-limited per IP address: 20 casts per hour, and at most 2 new anonymous votes per movie per day (so one connection can't reach a verdict alone). Limits count every accepted cast in `vote_attempts`, so retracting a vote doesn't reset them. Votes are only accepted for movies TMDB knows. API errors keep their status code (401 for unauthenticated `/api` calls, 404, 429, 502 when TMDB fails) instead of redirecting to the login page.
 
 ## Running tests
 

@@ -21,13 +21,15 @@ public class AuthController {
 
     @GetMapping("/me")
     public ResponseEntity<UserDto> me(@AuthenticationPrincipal OAuth2User oauthUser) {
+        // 204 rather than an empty 200: nobody is signed in (or the account was deleted).
         if (oauthUser == null) {
-            return ResponseEntity.ok(null);
+            return ResponseEntity.noContent().build();
         }
+
         return userRepository.findByOauthId(oauthUser.getName())
                 .map(UserDto::from)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.ok(null));
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     @DeleteMapping("/me")
@@ -40,6 +42,18 @@ public class AuthController {
         accountService.deleteAccount(oauthUser.getName());
         request.logout();
 
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/me/claim-votes")
+    public ResponseEntity<Void> claimAnonymousVotes(
+            @AuthenticationPrincipal OAuth2User oauthUser,
+            @RequestHeader(value = "X-Anonymous-Token", required = false) String anonymousToken) {
+        if (oauthUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        accountService.claimAnonymousVotes(oauthUser.getName(), anonymousToken);
         return ResponseEntity.noContent().build();
     }
 

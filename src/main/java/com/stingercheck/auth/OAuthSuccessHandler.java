@@ -41,6 +41,8 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
             () -> userRepository.save(new User(email, name, avatar, oauthId))
         );
 
-        getRedirectStrategy().sendRedirect(request, response, frontendUrl);
+        // Back to the page the sign-in started from (validated to be a path on this site).
+        String returnPath = ReturnToAuthorizationRequestResolver.takeReturnPath(request);
+        getRedirectStrategy().sendRedirect(request, response, frontendUrl + returnPath);
     }
 }

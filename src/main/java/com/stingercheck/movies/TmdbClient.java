@@ -1,14 +1,23 @@
 package com.stingercheck.movies;
 
+import com.stingercheck.config.CacheNames;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.List;
 
 @Component
 public class TmdbClient {
+
+    // Without timeouts a hanging TMDB would block request threads until the API stops responding.
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(5);
 
     private final RestClient restClient;
     private final String apiKey;
@@ -18,16 +27,22 @@ public class TmdbClient {
     public TmdbClient(
             @Value("${tmdb.api.key}") String apiKey,
             @Value("${tmdb.image.base-url}") String imageBaseUrl,
-            @Value("${tmdb.image.backdrop-base-url:https://image.tmdb.org/t/p/w1280}") String backdropBaseUrl) {
+            @Value("${tmdb.image.backdrop-base-url}") String backdropBaseUrl) {
         this.apiKey = apiKey;
         this.imageBaseUrl = imageBaseUrl;
         this.backdropBaseUrl = backdropBaseUrl;
+
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(
+                HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build());
+        requestFactory.setReadTimeout(READ_TIMEOUT);
+
         this.restClient = RestClient.builder()
                 .baseUrl("https://api.themoviedb.org/3")
+                .requestFactory(requestFactory)
                 .build();
     }
 
-    @Cacheable("tmdb-search")
+    @Cacheable(CacheNames.TMDB_SEARCH)
     public List<TmdbMovieResult> search(String query) {
         TmdbMovieResult.SearchResponse response = restClient.get()
                 .uri("/search/movie?query={q}&api_key={k}&language=en-US&page=1", query, apiKey)
@@ -36,15 +51,25 @@ public class TmdbClient {
         return resultsOf(response);
     }
 
-    @Cacheable("tmdb-movie")
+    /** @throws MovieNotFoundException when TMDB doesn't know the id */
+    @Cacheable(CacheNames.TMDB_MOVIE)
     public TmdbMovieResult getMovie(int tmdbId) {
-        return restClient.get()
+        TmdbMovieResult movie = restClient.get()
                 .uri("/movie/{id}?api_key={k}&language=en-US", tmdbId, apiKey)
                 .retrieve()
+                .onStatus(status -> status.value() == HttpStatus.NOT_FOUND.value(), (request, response) -> {
+                    throw new MovieNotFoundException(tmdbId);
+                })
                 .body(TmdbMovieResult.class);
+
+        if (movie == null) {
+            throw new MovieNotFoundException(tmdbId);
+        }
+
+        return movie;
     }
 
-    @Cacheable("tmdb-now-playing")
+    @Cacheable(CacheNames.TMDB_NOW_PLAYING)
     public List<TmdbMovieResult> nowPlaying() {
         TmdbMovieResult.SearchResponse response = restClient.get()
                 .uri("/movie/now_playing?api_key={k}&language=en-US&page=1", apiKey)
@@ -62,12 +87,16 @@ public class TmdbClient {
     }
 
     public String backdropUrl(String backdropPath) {
-        if (backdropPath == null) return null;
+        if (backdropPath == null) {
+            return null;
+        }
         return backdropBaseUrl + backdropPath;
     }
 
     public String posterUrl(String posterPath) {
-        if (posterPath == null) return null;
+        if (posterPath == null) {
+            return null;
+        }
         return imageBaseUrl + posterPath;
     }
 }
