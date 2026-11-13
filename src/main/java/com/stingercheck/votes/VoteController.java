@@ -24,6 +24,10 @@ public class VoteController {
             @AuthenticationPrincipal OAuth2User oauthUser,
             HttpServletRequest httpRequest) {
 
+        if (request.hasStinger() == null) {
+            throw new IllegalArgumentException("hasStinger is required");
+        }
+
         VoteSummaryDto summary = voteService.castVote(
                 tmdbId, request.hasStinger(), anonymousToken, oauthUser, resolveIp(httpRequest));
         return ResponseEntity.ok(summary);
