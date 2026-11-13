@@ -1,17 +1,17 @@
-# The pcs-checker-secrets Secret is created out of band (see README) and is
+# The stinger-check-secrets Secret is created out of band (see README) and is
 # deliberately not part of this overlay.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: pcs-checker
+namespace: stinger-check
 
 resources:
   - ../../base
   - ingress.yaml
 
 images:
-  - name: ghcr.io/iamandresilva/pcs-checker-api
+  - name: ghcr.io/iamandresilva/stinger-check-api
     newTag: c918ab81bd9a02a7e6b93411883271349e6d0aa0
-  - name: ghcr.io/iamandresilva/pcs-checker-ui
+  - name: ghcr.io/iamandresilva/stinger-check-ui
     newTag: fb396c7b4bffc61b22141f017c466bd56657a2dc
 
 configMapGenerator:

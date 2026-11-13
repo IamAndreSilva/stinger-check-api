@@ -31,19 +31,19 @@ spec:
             - containerPort: 5432
           env:
             - name: POSTGRES_DB
-              value: pcschecker
+              value: stingercheck
             - name: POSTGRES_USER
               value: postgres
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: pcs-checker-secrets
+                  name: stinger-check-secrets
                   key: POSTGRES_PASSWORD
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
           readinessProbe:
             exec:
-              command: [ "pg_isready", "-U", "postgres", "-d", "pcschecker" ]
+              command: [ "pg_isready", "-U", "postgres", "-d", "stingercheck" ]
             periodSeconds: 10
           resources:
             requests:

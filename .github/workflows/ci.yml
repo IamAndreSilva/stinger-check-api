@@ -15,7 +15,7 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_DB: pcschecker
+          POSTGRES_DB: stingercheck
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: secret
         ports:
@@ -50,7 +50,7 @@ jobs:
       - name: Build and verify
         run: ./mvnw verify
         env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/pcschecker
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/stingercheck
           SPRING_DATASOURCE_USERNAME: postgres
           SPRING_DATASOURCE_PASSWORD: secret
           SPRING_DATA_REDIS_HOST: localhost

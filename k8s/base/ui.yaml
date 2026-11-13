@@ -27,7 +27,7 @@ spec:
         - name: ghcr-pull
       containers:
         - name: ui
-          image: ghcr.io/iamandresilva/pcs-checker-ui
+          image: ghcr.io/iamandresilva/stinger-check-ui
           ports:
             - containerPort: 8080
           readinessProbe:

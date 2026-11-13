@@ -1,6 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: pcs-checker
+namespace: stinger-check
 
 resources:
   - namespace.yaml
@@ -13,8 +13,8 @@ resources:
 configMapGenerator:
   - name: api-config
     literals:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/pcschecker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/stingercheck
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATA_REDIS_HOST=redis
       - SERVER_FORWARD_HEADERS_STRATEGY=native
-      - LOGGING_LEVEL_NL_ANDRESILVA=INFO
+      - LOGGING_LEVEL_COM_STINGERCHECK=INFO

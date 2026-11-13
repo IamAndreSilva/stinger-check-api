@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: pcs-checker
+  name: stinger-check
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
@@ -10,7 +10,7 @@ spec:
     - hosts:
         - stingercheck.com
         - www.stingercheck.com
-      secretName: pcs-checker-tls
+      secretName: stinger-check-tls
   rules:
     - host: stingercheck.com
       http:
@@ -44,15 +44,15 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: pcs-checker-www
+  name: stinger-check-www
   annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: pcs-checker-www-redirect@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: stinger-check-www-redirect@kubernetescrd
 spec:
   ingressClassName: traefik
   tls:
     - hosts:
         - www.stingercheck.com
-      secretName: pcs-checker-tls
+      secretName: stinger-check-tls
   rules:
     - host: www.stingercheck.com
       http:
