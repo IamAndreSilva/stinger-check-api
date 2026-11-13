@@ -1,5 +1,6 @@
 package com.stingercheck.votes;
 
+import com.stingercheck.common.BadRequestException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,7 +26,7 @@ public class VoteController {
             HttpServletRequest httpRequest) {
 
         if (request.hasStinger() == null) {
-            throw new IllegalArgumentException("hasStinger is required");
+            throw new BadRequestException("hasStinger is required");
         }
 
         VoteSummaryDto summary = voteService.castVote(

@@ -1,8 +1,8 @@
 package com.stingercheck.movies;
 
+import com.stingercheck.votes.StingerVerdict;
 import com.stingercheck.votes.VoteService;
 import com.stingercheck.votes.VoteSummaryDto;
-import com.stingercheck.votes.VoteRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -10,19 +10,16 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/movies")
 public class MovieController {
 
     private final TmdbClient tmdbClient;
-    private final VoteRepository voteRepository;
     private final VoteService voteService;
 
-    public MovieController(TmdbClient tmdbClient, VoteRepository voteRepository, VoteService voteService) {
+    public MovieController(TmdbClient tmdbClient, VoteService voteService) {
         this.tmdbClient = tmdbClient;
-        this.voteRepository = voteRepository;
         this.voteService = voteService;
     }
 
@@ -36,6 +33,7 @@ public class MovieController {
         return ResponseEntity.ok(toListDtos(tmdbClient.nowPlaying()));
     }
 
+    /** 404 (via MovieNotFoundException) when TMDB doesn't know the id. */
     @GetMapping("/{tmdbId}")
     public ResponseEntity<MovieDto> getMovie(
             @PathVariable Integer tmdbId,
@@ -43,10 +41,7 @@ public class MovieController {
             @AuthenticationPrincipal OAuth2User oauthUser) {
 
         TmdbMovieResult movie = tmdbClient.getMovie(tmdbId);
-        if (movie == null) return ResponseEntity.notFound().build();
-
         VoteSummaryDto votes = voteService.getSummary(tmdbId, anonymousToken, oauthUser);
-        StingerVerdict verdict = StingerVerdict.fromVotes(votes.yes(), votes.no());
 
         return ResponseEntity.ok(new MovieDto(
                 movie.id(), movie.title(), Slugs.of(movie.title()), movie.year(),
@@ -54,36 +49,27 @@ public class MovieController {
                 tmdbClient.backdropUrl(movie.backdropPath()),
                 movie.overview(),
                 movie.runtime(),
-                verdict,
+                votes.verdict(),
                 votes
         ));
     }
 
     private List<MovieDto> toListDtos(List<TmdbMovieResult> results) {
-        if (results.isEmpty()) return List.of();
+        if (results.isEmpty()) {
+            return List.of();
+        }
 
         List<Integer> ids = results.stream().map(TmdbMovieResult::id).toList();
-        Map<Integer, long[]> voteCounts = buildVoteCountMap(ids);
+        Map<Integer, StingerVerdict> verdicts = voteService.verdictsFor(ids);
 
-        return results.stream().map(r -> {
-            long[] counts = voteCounts.getOrDefault(r.id(), new long[]{0, 0});
-            return new MovieDto(
-                    r.id(), r.title(), Slugs.of(r.title()), r.year(),
-                    tmdbClient.posterUrl(r.posterPath()),
-                    tmdbClient.backdropUrl(r.backdropPath()),
-                    null,
-                    null,
-                    StingerVerdict.fromVotes(counts[0], counts[1]),
-                    null
-            );
-        }).toList();
-    }
-
-    private Map<Integer, long[]> buildVoteCountMap(List<Integer> ids) {
-        return voteRepository.countVotesByMovieIds(ids).stream()
-                .collect(Collectors.toMap(
-                        row -> (Integer) row[0],
-                        row -> new long[]{((Number) row[1]).longValue(), ((Number) row[2]).longValue()}
-                ));
+        return results.stream().map(r -> new MovieDto(
+                r.id(), r.title(), Slugs.of(r.title()), r.year(),
+                tmdbClient.posterUrl(r.posterPath()),
+                tmdbClient.backdropUrl(r.backdropPath()),
+                null,
+                null,
+                verdicts.getOrDefault(r.id(), StingerVerdict.UNKNOWN),
+                null
+        )).toList();
     }
 }

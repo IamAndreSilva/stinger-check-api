@@ -1,6 +1,6 @@
 package com.stingercheck;
 
-import com.stingercheck.movies.SitemapService;
+import com.stingercheck.config.CacheNames;
 import com.stingercheck.movies.TmdbClient;
 import com.stingercheck.movies.TmdbMovieResult;
 import com.stingercheck.votes.Vote;
@@ -56,7 +56,7 @@ class SitemapEndpointTests {
     @BeforeEach
     @AfterEach
     void clearCaches() {
-        Stream.of(SitemapService.CACHE_NAME, "tmdb-movie", "tmdb-now-playing")
+        Stream.of(CacheNames.SITEMAP, CacheNames.TMDB_MOVIE, CacheNames.TMDB_NOW_PLAYING)
                 .map(cacheManager::getCache)
                 .forEach(Cache::clear);
     }

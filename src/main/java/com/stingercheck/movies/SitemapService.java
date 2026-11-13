@@ -1,5 +1,6 @@
 package com.stingercheck.movies;
 
+import com.stingercheck.config.CacheNames;
 import com.stingercheck.votes.VoteRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,8 +19,6 @@ import java.util.Map;
  */
 @Service
 public class SitemapService {
-
-    public static final String CACHE_NAME = "sitemap";
 
     // Far below the sitemap protocol's 50,000 URL limit; each voted movie costs a (cached) TMDB lookup.
     static final int MAX_SITEMAP_MOVIES = 1000;
@@ -40,7 +39,7 @@ public class SitemapService {
     }
 
     // sync: concurrent crawlers share one rebuild instead of each calling TMDB.
-    @Cacheable(value = CACHE_NAME, sync = true)
+    @Cacheable(value = CacheNames.SITEMAP, sync = true)
     public String sitemapXml() {
         StringBuilder xml = new StringBuilder()
                 .append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")

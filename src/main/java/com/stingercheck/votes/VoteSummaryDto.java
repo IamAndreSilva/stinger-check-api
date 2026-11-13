@@ -1,3 +1,4 @@
 package com.stingercheck.votes;
 
-public record VoteSummaryDto(long yes, long no, long total, Boolean userVote) {}
+/** Tallies for one movie, the caller's own vote (null if none) and the resulting verdict. */
+public record VoteSummaryDto(long yes, long no, long total, Boolean userVote, StingerVerdict verdict) {}

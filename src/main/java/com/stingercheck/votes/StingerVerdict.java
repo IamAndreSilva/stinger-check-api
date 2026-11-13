@@ -1,4 +1,4 @@
-package com.stingercheck.movies;
+package com.stingercheck.votes;
 
 public enum StingerVerdict {
     YES, NO, UNKNOWN;
