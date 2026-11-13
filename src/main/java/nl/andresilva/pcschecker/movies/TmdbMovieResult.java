@@ -8,7 +8,9 @@ public record TmdbMovieResult(
         String title,
         @JsonProperty("release_date") String releaseDate,
         @JsonProperty("poster_path") String posterPath,
-        String overview
+        @JsonProperty("backdrop_path") String backdropPath,
+        String overview,
+        Integer runtime
 ) {
     public int year() {
         if (releaseDate == null || releaseDate.length() < 4) return 0;

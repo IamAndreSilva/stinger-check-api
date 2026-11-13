@@ -26,7 +26,8 @@ public class RedisConfig {
                 .cacheDefaults(base.entryTtl(Duration.ofHours(1)))
                 .withInitialCacheConfigurations(Map.of(
                         "tmdb-search", base.entryTtl(Duration.ofMinutes(15)),
-                        "tmdb-movie",  base.entryTtl(Duration.ofHours(6))
+                        "tmdb-movie",  base.entryTtl(Duration.ofHours(6)),
+                        "tmdb-now-playing", base.entryTtl(Duration.ofHours(6))
                 ))
                 .build();
     }

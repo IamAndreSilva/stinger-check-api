@@ -28,25 +28,12 @@ public class MovieController {
 
     @GetMapping("/search")
     public ResponseEntity<List<MovieDto>> search(@RequestParam String q) {
-        List<TmdbMovieResult> results = tmdbClient.search(q);
-        if (results.isEmpty()) return ResponseEntity.ok(List.of());
+        return ResponseEntity.ok(toListDtos(tmdbClient.search(q)));
+    }
 
-        List<Integer> ids = results.stream().map(TmdbMovieResult::id).toList();
-        Map<Integer, long[]> voteCounts = buildVoteCountMap(ids);
-
-        List<MovieDto> movies = results.stream().map(r -> {
-            long[] counts = voteCounts.getOrDefault(r.id(), new long[]{0, 0});
-
-            return new MovieDto(
-                    r.id(), r.title(), r.year(),
-                    tmdbClient.posterUrl(r.posterPath()),
-                    null,
-                    PcsVerdict.fromVotes(counts[0], counts[1]),
-                    null
-            );
-        }).toList();
-
-        return ResponseEntity.ok(movies);
+    @GetMapping("/now-playing")
+    public ResponseEntity<List<MovieDto>> nowPlaying() {
+        return ResponseEntity.ok(toListDtos(tmdbClient.nowPlaying()));
     }
 
     @GetMapping("/{tmdbId}")
@@ -64,10 +51,32 @@ public class MovieController {
         return ResponseEntity.ok(new MovieDto(
                 movie.id(), movie.title(), movie.year(),
                 tmdbClient.posterUrl(movie.posterPath()),
+                tmdbClient.backdropUrl(movie.backdropPath()),
                 movie.overview(),
+                movie.runtime(),
                 verdict,
                 votes
         ));
+    }
+
+    private List<MovieDto> toListDtos(List<TmdbMovieResult> results) {
+        if (results.isEmpty()) return List.of();
+
+        List<Integer> ids = results.stream().map(TmdbMovieResult::id).toList();
+        Map<Integer, long[]> voteCounts = buildVoteCountMap(ids);
+
+        return results.stream().map(r -> {
+            long[] counts = voteCounts.getOrDefault(r.id(), new long[]{0, 0});
+            return new MovieDto(
+                    r.id(), r.title(), r.year(),
+                    tmdbClient.posterUrl(r.posterPath()),
+                    tmdbClient.backdropUrl(r.backdropPath()),
+                    null,
+                    null,
+                    PcsVerdict.fromVotes(counts[0], counts[1]),
+                    null
+            );
+        }).toList();
     }
 
     private Map<Integer, long[]> buildVoteCountMap(List<Integer> ids) {
