@@ -16,6 +16,9 @@ public interface VoteRepository extends JpaRepository<Vote, UUID> {
 
     Optional<Vote> findByTmdbMovieIdAndUserId(Integer tmdbMovieId, UUID userId);
 
+    @Query("SELECT DISTINCT v.tmdbMovieId FROM Vote v ORDER BY v.tmdbMovieId")
+    List<Integer> findDistinctMovieIds();
+
     @Query("SELECT COUNT(v) FROM Vote v WHERE v.tmdbMovieId = :movieId AND v.hasStinger = true")
     long countYesByMovieId(@Param("movieId") Integer movieId);
 

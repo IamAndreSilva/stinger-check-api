@@ -38,6 +38,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/api/movies/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/sitemap.xml").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/movies/*/votes").permitAll()
                         .requestMatchers(HttpMethod.DELETE, "/api/movies/*/votes").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()

@@ -1,5 +1,7 @@
 package com.stingercheck.config;
 
+import com.stingercheck.movies.SitemapService;
+
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,7 +29,8 @@ public class RedisConfig {
                 .withInitialCacheConfigurations(Map.of(
                         "tmdb-search", base.entryTtl(Duration.ofMinutes(15)),
                         "tmdb-movie",  base.entryTtl(Duration.ofHours(6)),
-                        "tmdb-now-playing", base.entryTtl(Duration.ofHours(6))
+                        "tmdb-now-playing", base.entryTtl(Duration.ofHours(6)),
+                        SitemapService.CACHE_NAME, base.entryTtl(Duration.ofHours(1))
                 ))
                 .build();
     }

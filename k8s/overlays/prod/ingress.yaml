@@ -22,6 +22,13 @@ spec:
                 name: api
                 port:
                   number: 8080
+          - path: /sitemap.xml
+            pathType: Exact
+            backend:
+              service:
+                name: api
+                port:
+                  number: 8080
           - path: /
             pathType: Prefix
             backend:
