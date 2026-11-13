@@ -29,7 +29,7 @@ spec:
                 - name: PGPASSWORD
                   valueFrom:
                     secretKeyRef:
-                      name: pcs-checker-secrets
+                      name: stinger-check-secrets
                       key: POSTGRES_PASSWORD
                 - name: RETENTION_DAYS
                   value: "7"
@@ -39,8 +39,8 @@ spec:
                 - pipefail
                 - -c
                 - |
-                  target=/backups/pcschecker-$(date +%F).sql.gz
-                  pg_dump -h postgres -U postgres pcschecker | gzip > "$target.tmp"
+                  target=/backups/stingercheck-$(date +%F).sql.gz
+                  pg_dump -h postgres -U postgres stingercheck | gzip > "$target.tmp"
                   mv "$target.tmp" "$target"
                   find /backups -name '*.sql.gz' -mtime +"$RETENTION_DAYS" -delete
               volumeMounts:

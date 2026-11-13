@@ -26,7 +26,7 @@ spec:
         - name: ghcr-pull
       containers:
         - name: api
-          image: ghcr.io/iamandresilva/pcs-checker-api
+          image: ghcr.io/iamandresilva/stinger-check-api
           ports:
             - containerPort: 8080
           envFrom:
@@ -36,22 +36,22 @@ spec:
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: pcs-checker-secrets
+                  name: stinger-check-secrets
                   key: POSTGRES_PASSWORD
             - name: TMDB_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: pcs-checker-secrets
+                  name: stinger-check-secrets
                   key: TMDB_API_KEY
             - name: GOOGLE_CLIENT_ID
               valueFrom:
                 secretKeyRef:
-                  name: pcs-checker-secrets
+                  name: stinger-check-secrets
                   key: GOOGLE_CLIENT_ID
             - name: GOOGLE_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: pcs-checker-secrets
+                  name: stinger-check-secrets
                   key: GOOGLE_CLIENT_SECRET
           startupProbe:
             httpGet:

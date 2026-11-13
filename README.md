@@ -1,6 +1,6 @@
-# pcs-checker-api
+# stinger-check-api
 
-Post-credit scene voting API. Lets users search movies (via TMDB), vote on whether a movie has a post-credit scene (PCS), and see the aggregated verdict.
+Backend for [Stinger Check](https://stingercheck.com). Lets users search movies (via TMDB), vote on whether a movie has a stinger (a post-credit scene), and see the aggregated verdict.
 
 ## Tech stack
 
@@ -54,7 +54,7 @@ TMDB_API_KEY=xxx GOOGLE_CLIENT_ID=xxx GOOGLE_CLIENT_SECRET=xxx ./mvnw spring-boo
 
 | Property / env var | Default | Purpose |
 |---|---|---|
-| `spring.datasource.url` / `.username` / `.password` | `jdbc:postgresql://localhost:5432/pcschecker` / `postgres` / `secret` | Postgres connection, matches `docker-compose.yml` |
+| `spring.datasource.url` / `.username` / `.password` | `jdbc:postgresql://localhost:5432/stingercheck` / `postgres` / `secret` | Postgres connection, matches `docker-compose.yml` |
 | `spring.data.redis.host` / `.port` | `localhost` / `6379` | Redis connection |
 | `TMDB_API_KEY` | `changeme` | TMDB API key for movie search/details |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | `changeme` | Google OAuth2 login credentials |
@@ -69,7 +69,7 @@ The frontend is expected to run separately at `http://localhost:5173`.
 |---|---|---|---|
 | `GET` | `/api/movies/search?q=` | public | Search movies via TMDB, annotated with current vote-based verdict |
 | `GET` | `/api/movies/{tmdbId}` | public | Movie details, vote summary and verdict |
-| `POST` | `/api/movies/{tmdbId}/votes` | public | Cast a vote (`{"hasPcs": true/false}`); identified by session (logged-in) or `X-Anonymous-Token` header |
+| `POST` | `/api/movies/{tmdbId}/votes` | public | Cast a vote (`{"hasStinger": true/false}`); identified by session (logged-in) or `X-Anonymous-Token` header |
 | `DELETE` | `/api/movies/{tmdbId}/votes` | public | Retract a vote |
 | `GET` | `/api/auth/me` | public | Current authenticated user, or `null` |
 | `POST` | `/api/auth/logout` | public | Log out |
@@ -90,14 +90,14 @@ There's no test-specific configuration or embedded/testcontainers setup yet, so 
 ## Docker
 
 ```bash
-docker build -t ghcr.io/iamandresilva/pcs-checker-api:local .
+docker build -t ghcr.io/iamandresilva/stinger-check-api:local .
 ```
 
-Pushes to `main` build and publish `ghcr.io/iamandresilva/pcs-checker-api` (tagged with the commit SHA and `latest`) via `.github/workflows/docker.yml`.
+Pushes to `main` build and publish `ghcr.io/iamandresilva/stinger-check-api` (tagged with the commit SHA and `latest`) via `.github/workflows/docker.yml`.
 
 ## Deploying to Kubernetes
 
-Manifests live in `k8s/` and are applied with Kustomize. They run the API, the UI ([pcs-checker-ui](https://github.com/IamAndreSilva/pcs-checker-ui)), Postgres and Redis in the `pcs-checker` namespace, plus a nightly `pg_dump` CronJob.
+Manifests live in `k8s/` and are applied with Kustomize. They run the API, the UI ([stinger-check-ui](https://github.com/IamAndreSilva/stinger-check-ui)), Postgres and Redis in the `stinger-check` namespace, plus a nightly `pg_dump` CronJob.
 
 | Path | Purpose |
 |---|---|
@@ -110,10 +110,10 @@ Manifests live in `k8s/` and are applied with Kustomize. They run the API, the U
 
 ```bash
 minikube start
-minikube image load ghcr.io/iamandresilva/pcs-checker-api:local ghcr.io/iamandresilva/pcs-checker-ui:local
+minikube image load ghcr.io/iamandresilva/stinger-check-api:local ghcr.io/iamandresilva/stinger-check-ui:local
 kubectl apply -k k8s/overlays/local
-kubectl -n pcs-checker port-forward svc/api 8080:8080
-kubectl -n pcs-checker port-forward svc/ui 8081:80
+kubectl -n stinger-check port-forward svc/api 8080:8080
+kubectl -n stinger-check port-forward svc/ui 8081:80
 ```
 
 ### Production (k3s)
@@ -123,8 +123,8 @@ kubectl -n pcs-checker port-forward svc/ui 8081:80
 3. Create the secret (never committed):
 
    ```bash
-   kubectl create namespace pcs-checker
-   kubectl -n pcs-checker create secret generic pcs-checker-secrets \
+   kubectl create namespace stinger-check
+   kubectl -n stinger-check create secret generic stinger-check-secrets \
      --from-literal=POSTGRES_PASSWORD=... \
      --from-literal=TMDB_API_KEY=... \
      --from-literal=GOOGLE_CLIENT_ID=... \
@@ -134,7 +134,7 @@ kubectl -n pcs-checker port-forward svc/ui 8081:80
    The images are private, so the cluster also needs a registry secret, created from a GitHub token that has only the `read:packages` scope:
 
    ```bash
-   kubectl -n pcs-checker create secret docker-registry ghcr-pull \
+   kubectl -n stinger-check create secret docker-registry ghcr-pull \
      --docker-server=ghcr.io --docker-username=<github-user> --docker-password=<token>
    ```
 
