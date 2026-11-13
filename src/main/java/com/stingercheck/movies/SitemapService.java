@@ -5,8 +5,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClientException;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,7 +39,8 @@ public class SitemapService {
         this.siteUrl = siteUrl.replaceAll("/+$", "");
     }
 
-    @Cacheable(CACHE_NAME)
+    // sync: concurrent crawlers share one rebuild instead of each calling TMDB.
+    @Cacheable(value = CACHE_NAME, sync = true)
     public String sitemapXml() {
         StringBuilder xml = new StringBuilder()
                 .append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
@@ -51,13 +52,28 @@ public class SitemapService {
         return xml.append("</urlset>\n").toString();
     }
 
-    /** Movie paths keyed by TMDB id, so a movie that is both voted on and now playing is listed once. */
+    /**
+     * Movie paths keyed by TMDB id, so a movie that is both now playing and voted on is listed once.
+     * Now playing goes first (one cached call), then the most recently voted movies fill the remaining slots.
+     */
     private Map<Integer, String> moviePaths() {
         Map<Integer, String> paths = new LinkedHashMap<>();
 
-        for (Integer tmdbId : voteRepository.findDistinctMovieIds()) {
+        for (TmdbMovieResult movie : nowPlaying()) {
             if (paths.size() >= MAX_SITEMAP_MOVIES) {
                 return paths;
+            }
+
+            paths.put(movie.id(), Slugs.moviePath(movie.id(), movie.title()));
+        }
+
+        for (Integer tmdbId : voteRepository.findRecentlyVotedMovieIds(Limit.of(MAX_SITEMAP_MOVIES))) {
+            if (paths.size() >= MAX_SITEMAP_MOVIES) {
+                return paths;
+            }
+
+            if (paths.containsKey(tmdbId)) {
+                continue;
             }
 
             TmdbMovieResult movie = findMovie(tmdbId);
@@ -66,27 +82,29 @@ public class SitemapService {
             }
         }
 
-        for (TmdbMovieResult movie : tmdbClient.nowPlaying()) {
-            if (paths.size() >= MAX_SITEMAP_MOVIES) {
-                return paths;
-            }
-
-            paths.putIfAbsent(movie.id(), Slugs.moviePath(movie.id(), movie.title()));
-        }
-
         return paths;
+    }
+
+    // A TMDB outage, rate limit or empty response leaves movies out instead of failing the whole sitemap.
+    private List<TmdbMovieResult> nowPlaying() {
+        try {
+            return tmdbClient.nowPlaying();
+        } catch (RuntimeException e) {
+            log.warn("Leaving now-playing movies out of the sitemap: {}", e.getMessage());
+            return List.of();
+        }
     }
 
     private TmdbMovieResult findMovie(int tmdbId) {
         try {
             return tmdbClient.getMovie(tmdbId);
-        } catch (RestClientException e) {
+        } catch (RuntimeException e) {
             log.warn("Leaving movie {} out of the sitemap: {}", tmdbId, e.getMessage());
             return null;
         }
     }
 
-    // Paths contain only the site URL, digits, a-z and dashes, so no XML escaping is needed.
+    // Paths contain only digits, a-z and dashes, and the site URL is our own config value, so no XML escaping is needed.
     private void appendUrl(StringBuilder xml, String path) {
         xml.append("  <url><loc>").append(siteUrl).append(path).append("</loc></url>\n");
     }

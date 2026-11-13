@@ -17,12 +17,14 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClientException;
 
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -78,6 +80,17 @@ class SitemapEndpointTests {
                 .contains("<loc>" + SITE_URL + "/movies/" + NOW_PLAYING_MOVIE_ID + "-amelie</loc>");
         String votedUrl = "<loc>" + SITE_URL + "/movies/" + VOTED_MOVIE_ID + "-iron-man</loc>";
         assertThat(xml.split(votedUrl, -1)).hasSize(2);
+    }
+
+    @Test
+    void stillListsVotedMoviesWhenNowPlayingFails() throws Exception {
+        voteRepository.saveAndFlush(new Vote(VOTED_MOVIE_ID, true, UUID.randomUUID().toString(), null, null));
+        when(tmdbClient.getMovie(VOTED_MOVIE_ID)).thenReturn(movie(VOTED_MOVIE_ID, "Iron Man"));
+        when(tmdbClient.nowPlaying()).thenThrow(new RestClientException("TMDB is down"));
+
+        mockMvc.perform(get("/sitemap.xml"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("/movies/" + VOTED_MOVIE_ID + "-iron-man</loc>")));
     }
 
     private static TmdbMovieResult movie(int id, String title) {

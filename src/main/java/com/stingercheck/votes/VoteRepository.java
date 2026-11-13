@@ -1,5 +1,6 @@
 package com.stingercheck.votes;
 
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -16,8 +17,8 @@ public interface VoteRepository extends JpaRepository<Vote, UUID> {
 
     Optional<Vote> findByTmdbMovieIdAndUserId(Integer tmdbMovieId, UUID userId);
 
-    @Query("SELECT DISTINCT v.tmdbMovieId FROM Vote v ORDER BY v.tmdbMovieId")
-    List<Integer> findDistinctMovieIds();
+    @Query("SELECT v.tmdbMovieId FROM Vote v GROUP BY v.tmdbMovieId ORDER BY MAX(v.createdAt) DESC")
+    List<Integer> findRecentlyVotedMovieIds(Limit limit);
 
     @Query("SELECT COUNT(v) FROM Vote v WHERE v.tmdbMovieId = :movieId AND v.hasStinger = true")
     long countYesByMovieId(@Param("movieId") Integer movieId);
