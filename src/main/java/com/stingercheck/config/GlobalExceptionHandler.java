@@ -1,6 +1,7 @@
 package com.stingercheck.config;
 
 import com.stingercheck.common.BadRequestException;
+import com.stingercheck.common.ConcurrentChangeException;
 import com.stingercheck.movies.MovieNotFoundException;
 import com.stingercheck.votes.RateLimitExceededException;
 import org.slf4j.Logger;
@@ -31,6 +32,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MovieNotFoundException.class)
     public ProblemDetail handleMovieNotFound(MovieNotFoundException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    // Only races we recognise and already retried; other integrity errors are bugs and stay 500s.
+    @ExceptionHandler(ConcurrentChangeException.class)
+    public ProblemDetail handleConcurrentChange(ConcurrentChangeException ex) {
+        log.warn("Concurrent change not resolved by a retry: {}", ex.getCause().getMessage());
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     // TMDB is down, slow or rejecting us: an upstream failure, not a bug in this service.

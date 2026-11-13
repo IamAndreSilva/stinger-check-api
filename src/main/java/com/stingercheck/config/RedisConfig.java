@@ -36,6 +36,7 @@ public class RedisConfig implements CachingConfigurer {
                         CacheNames.TMDB_SEARCH, base.entryTtl(Duration.ofMinutes(15)),
                         CacheNames.TMDB_MOVIE, base.entryTtl(Duration.ofHours(6)),
                         CacheNames.TMDB_NOW_PLAYING, base.entryTtl(Duration.ofHours(6)),
+                        CacheNames.TMDB_MOVIE_MISSING, base.entryTtl(Duration.ofHours(1)),
                         CacheNames.SITEMAP, base.entryTtl(Duration.ofHours(1))
                 ))
                 .build();

@@ -54,6 +54,7 @@ public class AuthController {
         }
 
         accountService.claimAnonymousVotes(oauthUser.getName(), anonymousToken);
+
         return ResponseEntity.noContent().build();
     }
 
