@@ -10,7 +10,7 @@ resources:
 
 images:
   - name: ghcr.io/iamandresilva/stinger-check-api
-    newTag: 301f6e6a4decc185291b4324e481856fb943416c
+    newTag: 5894314f1190ae7fbefcdd797146708f0c5c9879
   - name: ghcr.io/iamandresilva/stinger-check-ui
     newTag: 028040374902adbb1bd8fbb31c6379a02cc994f3
 
