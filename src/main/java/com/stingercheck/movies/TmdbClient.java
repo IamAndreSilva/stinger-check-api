@@ -33,7 +33,7 @@ public class TmdbClient {
                 .uri("/search/movie?query={q}&api_key={k}&language=en-US&page=1", query, apiKey)
                 .retrieve()
                 .body(TmdbMovieResult.SearchResponse.class);
-        return response != null ? response.results() : List.of();
+        return resultsOf(response);
     }
 
     @Cacheable("tmdb-movie")
@@ -50,7 +50,15 @@ public class TmdbClient {
                 .uri("/movie/now_playing?api_key={k}&language=en-US&page=1", apiKey)
                 .retrieve()
                 .body(TmdbMovieResult.SearchResponse.class);
-        return response != null ? response.results() : List.of();
+        return resultsOf(response);
+    }
+
+    // TMDB can answer without a "results" field; an empty list keeps callers and the cache (which rejects null) safe.
+    private static List<TmdbMovieResult> resultsOf(TmdbMovieResult.SearchResponse response) {
+        if (response == null || response.results() == null) {
+            return List.of();
+        }
+        return response.results();
     }
 
     public String backdropUrl(String backdropPath) {
