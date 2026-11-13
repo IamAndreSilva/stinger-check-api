@@ -49,7 +49,7 @@ public class MovieController {
         StingerVerdict verdict = StingerVerdict.fromVotes(votes.yes(), votes.no());
 
         return ResponseEntity.ok(new MovieDto(
-                movie.id(), movie.title(), movie.year(),
+                movie.id(), movie.title(), Slugs.of(movie.title()), movie.year(),
                 tmdbClient.posterUrl(movie.posterPath()),
                 tmdbClient.backdropUrl(movie.backdropPath()),
                 movie.overview(),
@@ -68,7 +68,7 @@ public class MovieController {
         return results.stream().map(r -> {
             long[] counts = voteCounts.getOrDefault(r.id(), new long[]{0, 0});
             return new MovieDto(
-                    r.id(), r.title(), r.year(),
+                    r.id(), r.title(), Slugs.of(r.title()), r.year(),
                     tmdbClient.posterUrl(r.posterPath()),
                     tmdbClient.backdropUrl(r.backdropPath()),
                     null,
