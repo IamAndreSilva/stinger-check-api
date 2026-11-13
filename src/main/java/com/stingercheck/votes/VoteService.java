@@ -71,7 +71,12 @@ public class VoteService {
             tmdbClient.getMovie(tmdbMovieId);
         } catch (RestClientException e) {
             // TMDB is down or slow (502): not the voter's fault, so give the hourly slot back.
-            releaseAttempt(attemptId);
+            // If that fails too, keep the TMDB error as the one reported.
+            try {
+                releaseAttempt(attemptId);
+            } catch (RuntimeException releaseError) {
+                e.addSuppressed(releaseError);
+            }
             throw e;
         }
 
@@ -177,6 +182,8 @@ public class VoteService {
             }
             throw e;
         }
+
+        voteAttemptRepository.resetLockWait();
     }
 
     private void releaseAttempt(Long attemptId) {

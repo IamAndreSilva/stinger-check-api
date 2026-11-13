@@ -22,6 +22,11 @@ public interface VoteAttemptRepository extends JpaRepository<VoteAttempt, Long> 
     @Query(value = "SET LOCAL lock_timeout = '" + VoteAttempt.LOCK_TIMEOUT + "'", nativeQuery = true)
     void limitLockWait();
 
+    /** Undoes limitLockWait, so later row locks in the transaction wait as long as usual. */
+    @Modifying
+    @Query(value = "SET LOCAL lock_timeout = DEFAULT", nativeQuery = true)
+    void resetLockWait();
+
     @Modifying(flushAutomatically = true)
     @Query("UPDATE VoteAttempt a SET a.newAnonymousVote = true WHERE a.id = :id")
     int markNewAnonymousVote(@Param("id") Long id);
