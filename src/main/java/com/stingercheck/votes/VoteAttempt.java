@@ -12,6 +12,9 @@ import java.time.Instant;
 @Table(name = "vote_attempts")
 public class VoteAttempt {
 
+    // First key of the per-IP advisory lock (see VoteAttemptRepository.lockIpAddress).
+    static final int LOCK_NAMESPACE = 1_727_384;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -30,6 +33,8 @@ public class VoteAttempt {
     private Instant createdAt = Instant.now();
 
     protected VoteAttempt() {}
+
+    public Long getId() { return id; }
 
     public VoteAttempt(String ipAddress, Integer tmdbMovieId, boolean newAnonymousVote) {
         this.ipAddress = ipAddress;

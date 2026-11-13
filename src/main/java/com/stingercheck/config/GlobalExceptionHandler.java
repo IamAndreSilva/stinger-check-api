@@ -5,6 +5,7 @@ import com.stingercheck.movies.MovieNotFoundException;
 import com.stingercheck.votes.RateLimitExceededException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -31,6 +32,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MovieNotFoundException.class)
     public ProblemDetail handleMovieNotFound(MovieNotFoundException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    // Two changes to the same row raced each other (e.g. claiming votes while voting);
+    // nothing was stored, and repeating the request succeeds.
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleConflict(DataIntegrityViolationException ex) {
+        log.info("Conflicting concurrent change: {}", ex.getMostSpecificCause().getMessage());
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "A conflicting change happened at the same time; please try again");
     }
 
     // TMDB is down, slow or rejecting us: an upstream failure, not a bug in this service.

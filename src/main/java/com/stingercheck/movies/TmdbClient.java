@@ -20,6 +20,7 @@ public class TmdbClient {
     private static final Duration READ_TIMEOUT = Duration.ofSeconds(5);
 
     private final RestClient restClient;
+    private final MissingMovies missingMovies;
     private final String apiKey;
     private final String imageBaseUrl;
     private final String backdropBaseUrl;
@@ -27,7 +28,9 @@ public class TmdbClient {
     public TmdbClient(
             @Value("${tmdb.api.key}") String apiKey,
             @Value("${tmdb.image.base-url}") String imageBaseUrl,
-            @Value("${tmdb.image.backdrop-base-url}") String backdropBaseUrl) {
+            @Value("${tmdb.image.backdrop-base-url}") String backdropBaseUrl,
+            MissingMovies missingMovies) {
+        this.missingMovies = missingMovies;
         this.apiKey = apiKey;
         this.imageBaseUrl = imageBaseUrl;
         this.backdropBaseUrl = backdropBaseUrl;
@@ -54,10 +57,15 @@ public class TmdbClient {
     /** @throws MovieNotFoundException when TMDB doesn't know the id */
     @Cacheable(CacheNames.TMDB_MOVIE)
     public TmdbMovieResult getMovie(int tmdbId) {
+        if (missingMovies.isKnownMissing(tmdbId)) {
+            throw new MovieNotFoundException(tmdbId);
+        }
+
         TmdbMovieResult movie = restClient.get()
                 .uri("/movie/{id}?api_key={k}&language=en-US", tmdbId, apiKey)
                 .retrieve()
                 .onStatus(status -> status.value() == HttpStatus.NOT_FOUND.value(), (request, response) -> {
+                    missingMovies.remember(tmdbId);
                     throw new MovieNotFoundException(tmdbId);
                 })
                 .body(TmdbMovieResult.class);

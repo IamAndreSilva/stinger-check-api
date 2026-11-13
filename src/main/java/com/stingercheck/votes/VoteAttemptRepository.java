@@ -9,6 +9,18 @@ import java.time.Instant;
 
 public interface VoteAttemptRepository extends JpaRepository<VoteAttempt, Long> {
 
+    /**
+     * Serializes vote casts from one IP address until the current transaction ends, so
+     * concurrent requests can't all read the same count and get past the rate limits together.
+     * Uses the two-key lock form with its own first key, apart from Flyway's one-key locks.
+     */
+    @Query(value = "SELECT 1 FROM pg_advisory_xact_lock(" + VoteAttempt.LOCK_NAMESPACE + ", hashtext(:ip))", nativeQuery = true)
+    Integer lockIpAddress(@Param("ip") String ipAddress);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE VoteAttempt a SET a.newAnonymousVote = true WHERE a.id = :id")
+    int markNewAnonymousVote(@Param("id") Long id);
+
     long countByIpAddressAndCreatedAtAfter(String ipAddress, Instant since);
 
     long countByIpAddressAndTmdbMovieIdAndNewAnonymousVoteTrueAndCreatedAtAfter(

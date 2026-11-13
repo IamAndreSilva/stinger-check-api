@@ -1,6 +1,7 @@
 package com.stingercheck.auth;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -53,7 +54,14 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        accountService.claimAnonymousVotes(oauthUser.getName(), anonymousToken);
+        try {
+            accountService.claimAnonymousVotes(oauthUser.getName(), anonymousToken);
+        } catch (DataIntegrityViolationException e) {
+            // The user voted on one of these movies while signed in at the same moment. Once
+            // that vote is committed, a retry skips the movie (their signed-in vote wins).
+            accountService.claimAnonymousVotes(oauthUser.getName(), anonymousToken);
+        }
+
         return ResponseEntity.noContent().build();
     }
 

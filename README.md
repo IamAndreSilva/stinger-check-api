@@ -82,7 +82,7 @@ The frontend is expected to run separately at `http://localhost:5173`.
 
 Anonymous voting is tracked via an `X-Anonymous-Token` request header (client-generated); authenticated users vote via their OAuth2 session instead.
 
-Votes are rate-limited per IP address: 20 casts per hour, and at most 2 new anonymous votes per movie per day (so one connection can't reach a verdict alone). Limits count every accepted cast in `vote_attempts`, so retracting a vote doesn't reset them. Votes are only accepted for movies TMDB knows. API errors keep their status code (401 for unauthenticated `/api` calls, 404, 429, 502 when TMDB fails) instead of redirecting to the login page.
+Votes are rate-limited per IP address: 20 vote requests per hour (including requests for movies TMDB doesn't know, so they can't cause unlimited TMDB calls), and at most 2 new anonymous votes per movie per day (so one connection can't reach a verdict alone). Limits count requests in `vote_attempts`, so retracting a vote doesn't reset them: withdrawing and voting again counts as a new vote. A per-IP Postgres advisory lock makes concurrent requests from one connection take turns, so they can't slip past the limits together. Votes are only accepted for movies TMDB knows; TMDB 404s are remembered for an hour. API errors keep their status code (401 for unauthenticated `/api` calls, 404, 429, 502 when TMDB fails) instead of redirecting to the login page.
 
 ## Running tests
 
