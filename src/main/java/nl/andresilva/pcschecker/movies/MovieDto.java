@@ -7,7 +7,9 @@ public record MovieDto(
         String title,
         int year,
         String posterUrl,
+        String backdropUrl,
         String overview,
+        Integer runtime,
         PcsVerdict verdict,
         VoteSummaryDto votes
 ) {}
