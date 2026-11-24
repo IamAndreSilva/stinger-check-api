@@ -10,9 +10,9 @@ resources:
 
 images:
   - name: ghcr.io/iamandresilva/stinger-check-api
-    newTag: 5894314f1190ae7fbefcdd797146708f0c5c9879
+    newTag: 5ad10004012ea2d38f6e689b92ea0696497fee7a
   - name: ghcr.io/iamandresilva/stinger-check-ui
-    newTag: 028040374902adbb1bd8fbb31c6379a02cc994f3
+    newTag: 8a780624afc5d0019845300ca7a89cac856db6e3
 
 configMapGenerator:
   - name: api-config
