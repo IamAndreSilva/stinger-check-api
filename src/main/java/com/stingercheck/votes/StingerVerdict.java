@@ -3,7 +3,8 @@ package com.stingercheck.votes;
 public enum StingerVerdict {
     YES, NO, UNKNOWN;
 
-    private static final long MIN_VOTES = 3;
+    // Also the number of answers a scene count needs before it's shown (VoteService).
+    static final long MIN_VOTES = 3;
     private static final double YES_THRESHOLD = 0.6;
     private static final double NO_THRESHOLD = 0.4;
 

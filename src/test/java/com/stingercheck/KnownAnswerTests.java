@@ -112,6 +112,8 @@ class KnownAnswerTests {
     void votersGiveTheCountWhenTheKnownAnswerHasNone() throws Exception {
         knownAnswer(MOVIE, "TMDB", true, null);
         vote(true, 2);
+        vote(true, 2);
+        vote(true, 2);
 
         mockMvc.perform(get("/api/movies/" + MOVIE))
                 .andExpect(jsonPath("$.verdict").value("YES"))

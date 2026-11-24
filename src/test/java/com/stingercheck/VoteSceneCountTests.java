@@ -48,8 +48,16 @@ class VoteSceneCountTests {
 
         setCount(token, "3")
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.userSceneCount").value(3))
-                .andExpect(jsonPath("$.sceneCount").value(3));
+                .andExpect(jsonPath("$.userSceneCount").value(3));
+    }
+
+    @Test
+    void oneAnswerIsNotShownAsTheCount() throws Exception {
+        castVote(token, true);
+
+        setCount(token, "3")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sceneCount").doesNotExist());
     }
 
     @Test
@@ -64,21 +72,26 @@ class VoteSceneCountTests {
     }
 
     @Test
-    void mostCommonCountLeads() throws Exception {
-        // Two voters: the most new anonymous votes one IP may cast on a movie per day.
-        String other = UUID.randomUUID().toString();
-        castVote(token, true).andExpect(status().isOk());
-        castVote(other, true).andExpect(status().isOk());
-        setCount(token, "3").andExpect(status().isOk());
+    void countIsShownOnceThreeVotersAgree() throws Exception {
+        String[] voters = votersFromTwoAddresses();
+        setCount(voters[0], "3");
+        setCount(voters[1], "3").andExpect(jsonPath("$.sceneCount").doesNotExist());
 
-        // Tied: no leading count.
-        setCount(other, "2")
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.sceneCount").doesNotExist());
-
-        setCount(other, "3")
+        setCount(voters[2], "3")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.sceneCount").value(3));
+    }
+
+    @Test
+    void countNeedsAClearMajority() throws Exception {
+        String[] voters = votersFromTwoAddresses();
+        setCount(voters[0], "1");
+        setCount(voters[1], "2");
+        setCount(voters[2], "3").andExpect(jsonPath("$.sceneCount").doesNotExist());
+
+        setCount(voters[2], "2")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sceneCount").value(2));
     }
 
     @Test
@@ -110,8 +123,25 @@ class VoteSceneCountTests {
         setCount(token, "5").andExpect(status().isBadRequest());
     }
 
+    // Three "yes" voters; one IP may only add two new anonymous votes to a movie per day.
+    private String[] votersFromTwoAddresses() throws Exception {
+        String[] voters = {token, UUID.randomUUID().toString(), UUID.randomUUID().toString()};
+        castVote(voters[0], true).andExpect(status().isOk());
+        castVote(voters[1], true).andExpect(status().isOk());
+        castVote(voters[2], true, "10.0.0.2").andExpect(status().isOk());
+        return voters;
+    }
+
     private ResultActions castVote(String anonymousToken, boolean hasStinger) throws Exception {
+        return castVote(anonymousToken, hasStinger, "127.0.0.1");
+    }
+
+    private ResultActions castVote(String anonymousToken, boolean hasStinger, String ipAddress) throws Exception {
         return mockMvc.perform(post(VOTE_URL)
+                .with(request -> {
+                    request.setRemoteAddr(ipAddress);
+                    return request;
+                })
                 .header("X-Anonymous-Token", anonymousToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"hasStinger\":" + hasStinger + "}"));

@@ -109,6 +109,9 @@ public class VoteService {
 
     static final int MAX_SCENE_COUNT = 4;
 
+    // Share of the answers the leading scene count needs; the same bar as a "yes" verdict.
+    private static final double SCENE_COUNT_MAJORITY = 0.6;
+
     /**
      * Sets how many extra scenes the caller's own "yes" vote reports (null clears it). Only
      * edits a vote the caller already cast, so it needs no rate limit of its own.
@@ -276,26 +279,29 @@ public class VoteService {
         return known.hasStinger() ? StingerVerdict.YES : StingerVerdict.NO;
     }
 
-    // The count most "yes" voters gave; null when nobody answered or the top answers are tied.
+    // The count most "yes" voters gave, once as many answered as a verdict needs votes and a
+    // clear majority agree; null before that, so one voter can't put a number on the page.
     private Integer leadingSceneCount(Integer tmdbMovieId) {
         Integer leading = null;
         long leadingVotes = 0;
-        boolean tied = false;
+        long answers = 0;
 
         for (Object[] row : voteRepository.countSceneCountsByMovieId(tmdbMovieId)) {
             int count = ((Number) row[0]).intValue();
             long votes = ((Number) row[1]).longValue();
+            answers += votes;
 
             if (votes > leadingVotes) {
                 leading = count;
                 leadingVotes = votes;
-                tied = false;
-            } else if (votes == leadingVotes) {
-                tied = true;
             }
         }
 
-        return tied ? null : leading;
+        // A tie can't reach the majority, so tied answers give no count either.
+        if (answers < StingerVerdict.MIN_VOTES || (double) leadingVotes / answers < SCENE_COUNT_MAJORITY) {
+            return null;
+        }
+        return leading;
     }
 
     private Map<Integer, VoteCounts> countVotes(List<Integer> tmdbMovieIds) {
