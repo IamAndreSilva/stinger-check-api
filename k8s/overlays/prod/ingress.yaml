@@ -1,9 +1,38 @@
+# Per-IP rate limits (Traefik sees the client IP: externalTrafficPolicy Local, see k8s/cluster).
+# A cache doesn't help against requests that never repeat (new search terms, new movie ids),
+# so these cap what one IP can cost. Over the limit, Traefik answers 429.
+#
+# Every route: well above a person browsing, including a page's first load of scripts and styles.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: rate-limit
+spec:
+  rateLimit:
+    average: 20
+    period: 1s
+    burst: 100
+---
+# Routes that can make TMDB calls: the movie API and server-rendered movie pages (whose
+# loaders call the API inside the cluster, past this ingress). About one request per page
+# view or debounced keystroke, so this still leaves room for several people behind one IP.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: rate-limit-movie-data
+spec:
+  rateLimit:
+    average: 5
+    period: 1s
+    burst: 30
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: stinger-check
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.middlewares: stinger-check-rate-limit@kubernetescrd
 spec:
   ingressClassName: traefik
   tls:
@@ -30,6 +59,39 @@ spec:
                 port:
                   number: 8080
           - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ui
+                port:
+                  number: 80
+---
+# The movie-data routes with their tighter limit. Longer paths win over the ones above (Traefik
+# orders routers by rule length), so these requests only pass rate-limit-movie-data.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: stinger-check-movie-data
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: stinger-check-rate-limit-movie-data@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - stingercheck.com
+      secretName: stinger-check-tls
+  rules:
+    - host: stingercheck.com
+      http:
+        paths:
+          - path: /api/movies
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 8080
+          - path: /movies
             pathType: Prefix
             backend:
               service:

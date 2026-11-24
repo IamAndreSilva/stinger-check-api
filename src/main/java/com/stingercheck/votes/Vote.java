@@ -20,6 +20,10 @@ public class Vote {
     @Column(name = "has_stinger", nullable = false)
     private Boolean hasStinger;
 
+    // How many extra scenes this "yes" voter counted (4 means "4 or more"); optional.
+    @Column(name = "scene_count")
+    private Integer sceneCount;
+
     @Column(name = "anonymous_token")
     private String anonymousToken;
 
@@ -50,6 +54,9 @@ public class Vote {
     public User getUser() { return user; }
     public String getIpAddress() { return ipAddress; }
     public Instant getCreatedAt() { return createdAt; }
+    public Integer getSceneCount() { return sceneCount; }
 
     public void setHasStinger(Boolean hasStinger) { this.hasStinger = hasStinger; }
+
+    public void setSceneCount(Integer sceneCount) { this.sceneCount = sceneCount; }
 }

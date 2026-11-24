@@ -13,5 +13,7 @@ public record MovieDto(
         String overview,
         Integer runtime,
         StingerVerdict verdict,
-        VoteSummaryDto votes
+        VoteSummaryDto votes,
+        // Only on the movie details endpoint, and null when the movie isn't part of a series.
+        CollectionDto collection
 ) {}

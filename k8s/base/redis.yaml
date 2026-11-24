@@ -1,3 +1,6 @@
+# Two Redis instances, so a flood of cache entries can only evict cache entries:
+#   redis        login sessions (Spring Session); never evicts
+#   redis-cache  TMDB lookups and the sitemap; evicts the least recently used entries when full
 apiVersion: v1
 kind: Service
 metadata:
@@ -25,7 +28,50 @@ spec:
       containers:
         - name: redis
           image: redis:7-alpine
-          # Cache and sessions only: cap memory and evict rather than fail writes.
+          # Sessions are data, not cache: when full, refuse new ones rather than drop signed-in users.
+          # The cap stays below the memory limit so Redis refuses writes before the pod is OOM-killed.
+          args: [ "--maxmemory", "48mb", "--maxmemory-policy", "noeviction" ]
+          ports:
+            - containerPort: 6379
+          readinessProbe:
+            exec:
+              command: [ "redis-cli", "ping" ]
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 96Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cache
+spec:
+  selector:
+    app: redis-cache
+  ports:
+    - port: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-cache
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-cache
+  template:
+    metadata:
+      labels:
+        app: redis-cache
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          # Cache only: cap memory and evict rather than fail writes.
           args: [ "--maxmemory", "96mb", "--maxmemory-policy", "allkeys-lru" ]
           ports:
             - containerPort: 6379

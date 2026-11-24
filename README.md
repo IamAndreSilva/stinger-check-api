@@ -6,7 +6,7 @@ Backend for [Stinger Check](https://stingercheck.com). Lets users search movies 
 
 - Java 21, Spring Boot 4
 - PostgreSQL (data) + Flyway (migrations)
-- Redis (caching + session store)
+- Redis (caching + session store; separate instances in Kubernetes)
 - Spring Security with Google OAuth2 login
 - TMDB API (movie search/metadata)
 
@@ -55,7 +55,8 @@ TMDB_API_KEY=xxx GOOGLE_CLIENT_ID=xxx GOOGLE_CLIENT_SECRET=xxx ./mvnw spring-boo
 | Property / env var | Default | Purpose |
 |---|---|---|
 | `spring.datasource.url` / `.username` / `.password` | `jdbc:postgresql://localhost:5432/stingercheck` / `postgres` / `secret` | Postgres connection, matches `docker-compose.yml` |
-| `spring.data.redis.host` / `.port` | `localhost` / `6379` | Redis connection |
+| `spring.data.redis.host` / `.port` | `localhost` / `6379` | Redis for login sessions |
+| `app.cache.redis.host` / `.port` | same as `spring.data.redis.*` | Redis for the cache. A separate instance in Kubernetes, so a flood of cache entries can't evict sessions |
 | `TMDB_API_KEY` | `changeme` | TMDB API key for movie search/details |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | `changeme` | Google OAuth2 login credentials |
 | `app.frontend-url` | `http://localhost:5173` | Allowed CORS origin and OAuth2 redirect target |
@@ -67,7 +68,7 @@ The frontend is expected to run separately at `http://localhost:5173`.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/api/movies/search?q=` | public | Search movies via TMDB, annotated with current vote-based verdict |
+| `GET` | `/api/movies/search?q=` | public | Search movies via TMDB, annotated with current vote-based verdict. `q` is at most 100 characters (400 otherwise); case and extra spaces are ignored |
 | `GET` | `/api/movies/now-playing` | public | Movies in cinemas now, with verdicts |
 | `GET` | `/api/movies/{tmdbId}` | public | Movie details, vote summary and verdict; 404 if TMDB doesn't know the id |
 | `POST` | `/api/movies/{tmdbId}/votes` | public | Cast or change a vote (`{"hasStinger": true/false}`); identified by session (logged-in) or `X-Anonymous-Token` header. Returns the new tallies and verdict |
@@ -98,17 +99,19 @@ There's no test-specific configuration or embedded/testcontainers setup yet, so 
 docker build -t ghcr.io/iamandresilva/stinger-check-api:local .
 ```
 
+`.github/workflows/uptime.yml` checks the live site every 15 minutes (home page, a movie page, the API and the TLS certificate); GitHub emails a failed run to whoever last changed its schedule.
+
 Pushes to `main` build and publish `ghcr.io/iamandresilva/stinger-check-api` (tagged with the commit SHA and `latest`) via `.github/workflows/docker.yml`.
 
 ## Deploying to Kubernetes
 
-Manifests live in `k8s/` and are applied with Kustomize. They run the API, the UI ([stinger-check-ui](https://github.com/IamAndreSilva/stinger-check-ui)), Postgres and Redis in the `stinger-check` namespace, plus a nightly `pg_dump` CronJob.
+Manifests live in `k8s/` and are applied with Kustomize. They run the API, the UI ([stinger-check-ui](https://github.com/IamAndreSilva/stinger-check-ui)), Postgres and two Redis instances (`redis` for sessions, which never evicts, and `redis-cache` for the cache, which evicts the least recently used entries) in the `stinger-check` namespace, plus a nightly `pg_dump` CronJob.
 
 | Path | Purpose |
 |---|---|
 | `k8s/base` | Workloads shared by every environment |
 | `k8s/overlays/local` | Local cluster (minikube/kind), placeholder secrets, no ingress |
-| `k8s/overlays/prod` | Ingress with TLS: `/api` goes to the API, everything else to the UI |
+| `k8s/overlays/prod` | Ingress with TLS: `/api` goes to the API, everything else to the UI. Per-IP rate limits (Traefik): 20 requests/s (burst 100) on every route, 5/s (burst 30) on `/api/movies` and `/movies` pages, which can make TMDB calls |
 | `k8s/cluster` | One-off cluster setup for k3s: Let's Encrypt issuer and Traefik settings |
 
 ### Local cluster
