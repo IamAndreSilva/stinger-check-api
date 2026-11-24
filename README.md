@@ -99,6 +99,8 @@ There's no test-specific configuration or embedded/testcontainers setup yet, so 
 docker build -t ghcr.io/iamandresilva/stinger-check-api:local .
 ```
 
+`.github/workflows/uptime.yml` checks the live site every 15 minutes (home page, a movie page, the API and the TLS certificate); GitHub emails a failed run to whoever last changed its schedule.
+
 Pushes to `main` build and publish `ghcr.io/iamandresilva/stinger-check-api` (tagged with the commit SHA and `latest`) via `.github/workflows/docker.yml`.
 
 ## Deploying to Kubernetes
