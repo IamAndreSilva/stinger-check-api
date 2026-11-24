@@ -1,5 +1,6 @@
 package com.stingercheck.movies;
 
+import com.stingercheck.common.BadRequestException;
 import com.stingercheck.votes.StingerVerdict;
 import com.stingercheck.votes.VoteService;
 import com.stingercheck.votes.VoteSummaryDto;
@@ -12,13 +13,19 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/movies")
 public class MovieController {
 
     private static final Logger log = LoggerFactory.getLogger(MovieController.class);
+
+    // Each distinct search costs a TMDB call and a cache entry, so the term is capped and normalised.
+    static final int MAX_SEARCH_LENGTH = 100;
+    private static final Pattern WHITESPACE = Pattern.compile("\\s+");
 
     // Unreleased films without a date go last.
     private static final Comparator<TmdbMovieResult> BY_RELEASE_DATE = Comparator.comparing(
@@ -32,9 +39,16 @@ public class MovieController {
         this.voteService = voteService;
     }
 
+    /** 400 when q is longer than MAX_SEARCH_LENGTH; an empty list without a TMDB call when it's blank. */
     @GetMapping("/search")
     public ResponseEntity<List<MovieDto>> search(@RequestParam String q) {
-        return ResponseEntity.ok(toListDtos(tmdbClient.search(q)));
+        String query = normalizeSearch(q);
+
+        if (query.isEmpty()) {
+            return ResponseEntity.ok(List.of());
+        }
+
+        return ResponseEntity.ok(toListDtos(tmdbClient.search(query)));
     }
 
     @GetMapping("/now-playing")
@@ -62,6 +76,17 @@ public class MovieController {
                 votes,
                 collectionOf(movie)
         ));
+    }
+
+    // TMDB search ignores case and extra spaces, so "Dune ", "dune" and "DUNE" share one cache entry.
+    private static String normalizeSearch(String q) {
+        String query = WHITESPACE.matcher(q.strip()).replaceAll(" ").toLowerCase(Locale.ROOT);
+
+        if (query.length() > MAX_SEARCH_LENGTH) {
+            throw new BadRequestException("q must be at most " + MAX_SEARCH_LENGTH + " characters");
+        }
+
+        return query;
     }
 
     // The series is extra: if TMDB fails here, the movie page still works without it.

@@ -67,7 +67,7 @@ The frontend is expected to run separately at `http://localhost:5173`.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/api/movies/search?q=` | public | Search movies via TMDB, annotated with current vote-based verdict |
+| `GET` | `/api/movies/search?q=` | public | Search movies via TMDB, annotated with current vote-based verdict. `q` is at most 100 characters (400 otherwise); case and extra spaces are ignored |
 | `GET` | `/api/movies/now-playing` | public | Movies in cinemas now, with verdicts |
 | `GET` | `/api/movies/{tmdbId}` | public | Movie details, vote summary and verdict; 404 if TMDB doesn't know the id |
 | `POST` | `/api/movies/{tmdbId}/votes` | public | Cast or change a vote (`{"hasStinger": true/false}`); identified by session (logged-in) or `X-Anonymous-Token` header. Returns the new tallies and verdict |
