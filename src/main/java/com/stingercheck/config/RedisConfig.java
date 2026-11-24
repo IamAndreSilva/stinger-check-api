@@ -21,7 +21,7 @@ public class RedisConfig implements CachingConfigurer {
 
     // Cached values carry their Java class name; bump this when a cached type is renamed or
     // changed incompatibly, so old entries are ignored instead of failing to deserialize.
-    private static final String CACHE_KEY_VERSION = "v1:";
+    private static final String CACHE_KEY_VERSION = "v2:";
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
@@ -36,6 +36,7 @@ public class RedisConfig implements CachingConfigurer {
                         CacheNames.TMDB_SEARCH, base.entryTtl(Duration.ofMinutes(15)),
                         CacheNames.TMDB_MOVIE, base.entryTtl(Duration.ofHours(6)),
                         CacheNames.TMDB_NOW_PLAYING, base.entryTtl(Duration.ofHours(6)),
+                        CacheNames.TMDB_COLLECTION, base.entryTtl(Duration.ofHours(24)),
                         CacheNames.TMDB_MOVIE_MISSING, base.entryTtl(Duration.ofHours(1)),
                         CacheNames.SITEMAP, base.entryTtl(Duration.ofHours(1))
                 ))

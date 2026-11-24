@@ -30,17 +30,28 @@ spec:
           image: ghcr.io/iamandresilva/stinger-check-ui
           ports:
             - containerPort: 8080
+          env:
+            # Pages are rendered here and fetch movie data from the API inside the cluster.
+            - name: API_URL
+              value: http://api:8080
           readinessProbe:
             httpGet:
-              path: /
+              path: /healthz
               port: 8080
             periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
           resources:
+            # A Node server rendering pages, no longer static files from nginx.
             requests:
-              cpu: 10m
-              memory: 16Mi
+              cpu: 50m
+              memory: 96Mi
             limits:
-              memory: 64Mi
+              memory: 256Mi
           securityContext:
             runAsNonRoot: true
             allowPrivilegeEscalation: false

@@ -1,6 +1,9 @@
 package com.stingercheck.votes;
 
+import com.stingercheck.answers.KnownAnswer;
+import com.stingercheck.answers.KnownAnswerRepository;
 import com.stingercheck.auth.User;
+import com.stingercheck.common.BadRequestException;
 import com.stingercheck.common.SqlStates;
 import com.stingercheck.auth.UserRepository;
 import com.stingercheck.movies.TmdbClient;
@@ -35,15 +38,18 @@ public class VoteService {
     private final VoteAttemptRepository voteAttemptRepository;
     private final UserRepository userRepository;
     private final TmdbClient tmdbClient;
+    private final KnownAnswerRepository knownAnswerRepository;
     private final TransactionTemplate transactionTemplate;
 
     public VoteService(VoteRepository voteRepository, VoteAttemptRepository voteAttemptRepository,
                        UserRepository userRepository, TmdbClient tmdbClient,
+                       KnownAnswerRepository knownAnswerRepository,
                        PlatformTransactionManager transactionManager) {
         this.voteRepository = voteRepository;
         this.voteAttemptRepository = voteAttemptRepository;
         this.userRepository = userRepository;
         this.tmdbClient = tmdbClient;
+        this.knownAnswerRepository = knownAnswerRepository;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -101,6 +107,42 @@ public class VoteService {
         return buildSummary(tmdbMovieId, anonymousToken, null);
     }
 
+    static final int MAX_SCENE_COUNT = 4;
+
+    /**
+     * Sets how many extra scenes the caller's own "yes" vote reports (null clears it). Only
+     * edits a vote the caller already cast, so it needs no rate limit of its own.
+     *
+     * @throws BadRequestException when the count is out of range or the caller has no "yes" vote
+     */
+    @Transactional
+    public VoteSummaryDto setSceneCount(Integer tmdbMovieId, Integer sceneCount,
+                                        String anonymousToken, OAuth2User oauthUser) {
+        if (sceneCount != null && (sceneCount < 1 || sceneCount > MAX_SCENE_COUNT)) {
+            throw new BadRequestException("sceneCount must be between 1 and " + MAX_SCENE_COUNT);
+        }
+
+        User user = resolveUser(oauthUser);
+        Optional<Vote> own;
+
+        if (user != null) {
+            own = voteRepository.findByTmdbMovieIdAndUserId(tmdbMovieId, user.getId());
+        } else {
+            AnonymousTokens.validate(anonymousToken);
+            own = voteRepository.findByTmdbMovieIdAndAnonymousToken(tmdbMovieId, anonymousToken);
+        }
+
+        Vote vote = own.filter(v -> Boolean.TRUE.equals(v.getHasStinger()))
+                .orElseThrow(() -> new BadRequestException("Vote yes before adding a scene count"));
+        vote.setSceneCount(sceneCount);
+        voteRepository.saveAndFlush(vote);
+
+        if (user != null) {
+            return buildSummary(tmdbMovieId, null, user.getId());
+        }
+        return buildSummary(tmdbMovieId, anonymousToken, null);
+    }
+
     @Transactional(readOnly = true)
     public VoteSummaryDto getSummary(Integer tmdbMovieId, String anonymousToken, OAuth2User oauthUser) {
         User user = resolveUser(oauthUser);
@@ -113,7 +155,7 @@ public class VoteService {
         return buildSummary(tmdbMovieId, anonymousToken, userId);
     }
 
-    /** Verdict per movie id; movies without votes are UNKNOWN. */
+    /** Verdict per movie id: the known answer when there is one, else from the votes; others are UNKNOWN. */
     @Transactional(readOnly = true)
     public Map<Integer, StingerVerdict> verdictsFor(List<Integer> tmdbMovieIds) {
         Map<Integer, StingerVerdict> verdicts = new HashMap<>();
@@ -124,6 +166,7 @@ public class VoteService {
 
         countVotes(tmdbMovieIds).forEach((id, counts) ->
                 verdicts.put(id, StingerVerdict.fromVotes(counts.yes(), counts.no())));
+        knownAnswerRepository.findFor(tmdbMovieIds).forEach((id, known) -> verdicts.put(id, verdictOf(known)));
         return verdicts;
     }
 
@@ -198,6 +241,7 @@ public class VoteService {
         VoteCounts counts = countVotes(List.of(tmdbMovieId)).getOrDefault(tmdbMovieId, VoteCounts.NONE);
 
         Boolean userVote = null;
+        Integer userSceneCount = null;
         Optional<Vote> own = Optional.empty();
         if (userId != null) {
             own = voteRepository.findByTmdbMovieIdAndUserId(tmdbMovieId, userId);
@@ -206,10 +250,52 @@ public class VoteService {
         }
         if (own.isPresent()) {
             userVote = own.get().getHasStinger();
+            userSceneCount = own.get().getSceneCount();
+        }
+
+        // A known answer wins over the votes. Its own scene count wins too; without one, the voters' count is used.
+        KnownAnswer known = knownAnswerRepository.findFor(List.of(tmdbMovieId)).get(tmdbMovieId);
+        StingerVerdict verdict;
+        Integer sceneCount;
+        if (known == null) {
+            verdict = StingerVerdict.fromVotes(counts.yes(), counts.no());
+            sceneCount = leadingSceneCount(tmdbMovieId);
+        } else if (!known.hasStinger()) {
+            verdict = StingerVerdict.NO;
+            sceneCount = null;
+        } else {
+            verdict = StingerVerdict.YES;
+            sceneCount = known.sceneCount() != null ? known.sceneCount() : leadingSceneCount(tmdbMovieId);
         }
 
         return new VoteSummaryDto(counts.yes(), counts.no(), counts.yes() + counts.no(), userVote,
-                StingerVerdict.fromVotes(counts.yes(), counts.no()));
+                verdict, sceneCount, userSceneCount, known != null);
+    }
+
+    private static StingerVerdict verdictOf(KnownAnswer known) {
+        return known.hasStinger() ? StingerVerdict.YES : StingerVerdict.NO;
+    }
+
+    // The count most "yes" voters gave; null when nobody answered or the top answers are tied.
+    private Integer leadingSceneCount(Integer tmdbMovieId) {
+        Integer leading = null;
+        long leadingVotes = 0;
+        boolean tied = false;
+
+        for (Object[] row : voteRepository.countSceneCountsByMovieId(tmdbMovieId)) {
+            int count = ((Number) row[0]).intValue();
+            long votes = ((Number) row[1]).longValue();
+
+            if (votes > leadingVotes) {
+                leading = count;
+                leadingVotes = votes;
+                tied = false;
+            } else if (votes == leadingVotes) {
+                tied = true;
+            }
+        }
+
+        return tied ? null : leading;
     }
 
     private Map<Integer, VoteCounts> countVotes(List<Integer> tmdbMovieIds) {

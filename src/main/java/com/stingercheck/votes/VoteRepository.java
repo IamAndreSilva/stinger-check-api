@@ -26,13 +26,18 @@ public interface VoteRepository extends JpaRepository<Vote, UUID> {
     @Query("SELECT v.tmdbMovieId, SUM(CASE WHEN v.hasStinger = true THEN 1 ELSE 0 END), SUM(CASE WHEN v.hasStinger = false THEN 1 ELSE 0 END) FROM Vote v WHERE v.tmdbMovieId IN :ids GROUP BY v.tmdbMovieId")
     List<Object[]> countVotesByMovieIds(@Param("ids") List<Integer> tmdbMovieIds);
 
+    /** Rows of [sceneCount, votes] for the movie's "yes" votes that include a count. */
+    @Query("SELECT v.sceneCount, COUNT(v) FROM Vote v WHERE v.tmdbMovieId = :id AND v.hasStinger = true AND v.sceneCount IS NOT NULL GROUP BY v.sceneCount")
+    List<Object[]> countSceneCountsByMovieId(@Param("id") Integer tmdbMovieId);
+
     // Insert-or-update in one statement, so two concurrent casts (a double click) can't
-    // both insert and hit the unique constraint.
+    // both insert and hit the unique constraint. Changing to "no" clears the scene count.
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = """
             INSERT INTO votes (id, tmdb_movie_id, has_stinger, anonymous_token, ip_address, created_at)
             VALUES (gen_random_uuid(), :movieId, :hasStinger, :token, :ip, now())
-            ON CONFLICT (tmdb_movie_id, anonymous_token) DO UPDATE SET has_stinger = EXCLUDED.has_stinger
+            ON CONFLICT (tmdb_movie_id, anonymous_token) DO UPDATE SET has_stinger = EXCLUDED.has_stinger,
+                scene_count = CASE WHEN EXCLUDED.has_stinger THEN votes.scene_count END
             """, nativeQuery = true)
     int upsertAnonymousVote(@Param("movieId") Integer tmdbMovieId, @Param("token") String anonymousToken,
                             @Param("hasStinger") boolean hasStinger, @Param("ip") String ipAddress);
@@ -41,7 +46,8 @@ public interface VoteRepository extends JpaRepository<Vote, UUID> {
     @Query(value = """
             INSERT INTO votes (id, tmdb_movie_id, has_stinger, user_id, ip_address, created_at)
             VALUES (gen_random_uuid(), :movieId, :hasStinger, :userId, :ip, now())
-            ON CONFLICT (tmdb_movie_id, user_id) DO UPDATE SET has_stinger = EXCLUDED.has_stinger
+            ON CONFLICT (tmdb_movie_id, user_id) DO UPDATE SET has_stinger = EXCLUDED.has_stinger,
+                scene_count = CASE WHEN EXCLUDED.has_stinger THEN votes.scene_count END
             """, nativeQuery = true)
     int upsertUserVote(@Param("movieId") Integer tmdbMovieId, @Param("userId") UUID userId,
                        @Param("hasStinger") boolean hasStinger, @Param("ip") String ipAddress);

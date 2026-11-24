@@ -34,6 +34,18 @@ public class VoteController {
         return ResponseEntity.ok(summary);
     }
 
+    /** How many extra scenes the caller's existing "yes" vote reports; 400 when there is none. */
+    @PutMapping("/scene-count")
+    public ResponseEntity<VoteSummaryDto> setSceneCount(
+            @PathVariable Integer tmdbId,
+            @RequestBody SceneCountRequestDto request,
+            @RequestHeader(value = "X-Anonymous-Token", required = false) String anonymousToken,
+            @AuthenticationPrincipal OAuth2User oauthUser) {
+
+        VoteSummaryDto summary = voteService.setSceneCount(tmdbId, request.sceneCount(), anonymousToken, oauthUser);
+        return ResponseEntity.ok(summary);
+    }
+
     @DeleteMapping
     public ResponseEntity<VoteSummaryDto> retractVote(
             @PathVariable Integer tmdbId,
