@@ -6,7 +6,7 @@ Backend for [Stinger Check](https://stingercheck.com). Lets users search movies 
 
 - Java 21, Spring Boot 4
 - PostgreSQL (data) + Flyway (migrations)
-- Redis (caching + session store)
+- Redis (caching + session store; separate instances in Kubernetes)
 - Spring Security with Google OAuth2 login
 - TMDB API (movie search/metadata)
 
@@ -55,7 +55,8 @@ TMDB_API_KEY=xxx GOOGLE_CLIENT_ID=xxx GOOGLE_CLIENT_SECRET=xxx ./mvnw spring-boo
 | Property / env var | Default | Purpose |
 |---|---|---|
 | `spring.datasource.url` / `.username` / `.password` | `jdbc:postgresql://localhost:5432/stingercheck` / `postgres` / `secret` | Postgres connection, matches `docker-compose.yml` |
-| `spring.data.redis.host` / `.port` | `localhost` / `6379` | Redis connection |
+| `spring.data.redis.host` / `.port` | `localhost` / `6379` | Redis for login sessions |
+| `app.cache.redis.host` / `.port` | same as `spring.data.redis.*` | Redis for the cache. A separate instance in Kubernetes, so a flood of cache entries can't evict sessions |
 | `TMDB_API_KEY` | `changeme` | TMDB API key for movie search/details |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | `changeme` | Google OAuth2 login credentials |
 | `app.frontend-url` | `http://localhost:5173` | Allowed CORS origin and OAuth2 redirect target |
@@ -102,7 +103,7 @@ Pushes to `main` build and publish `ghcr.io/iamandresilva/stinger-check-api` (ta
 
 ## Deploying to Kubernetes
 
-Manifests live in `k8s/` and are applied with Kustomize. They run the API, the UI ([stinger-check-ui](https://github.com/IamAndreSilva/stinger-check-ui)), Postgres and Redis in the `stinger-check` namespace, plus a nightly `pg_dump` CronJob.
+Manifests live in `k8s/` and are applied with Kustomize. They run the API, the UI ([stinger-check-ui](https://github.com/IamAndreSilva/stinger-check-ui)), Postgres and two Redis instances (`redis` for sessions, which never evicts, and `redis-cache` for the cache, which evicts the least recently used entries) in the `stinger-check` namespace, plus a nightly `pg_dump` CronJob.
 
 | Path | Purpose |
 |---|---|

@@ -16,5 +16,6 @@ configMapGenerator:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/stingercheck
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATA_REDIS_HOST=redis
+      - APP_CACHE_REDIS_HOST=redis-cache
       - SERVER_FORWARD_HEADERS_STRATEGY=native
       - LOGGING_LEVEL_COM_STINGERCHECK=INFO

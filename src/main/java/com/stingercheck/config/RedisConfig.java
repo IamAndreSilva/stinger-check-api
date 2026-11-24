@@ -1,5 +1,6 @@
 package com.stingercheck.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.interceptor.CacheErrorHandler;
@@ -8,7 +9,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
-import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 
@@ -23,14 +23,24 @@ public class RedisConfig implements CachingConfigurer {
     // changed incompatibly, so old entries are ignored instead of failing to deserialize.
     private static final String CACHE_KEY_VERSION = "v2:";
 
+    /**
+     * Production gives the cache its own Redis (allkeys-lru), so a flood of new cache entries
+     * evicts only cache entries and never login sessions. Locally both use the same Redis.
+     */
+    @Bean(destroyMethod = "close")
+    public CacheRedisConnection cacheRedisConnection(@Value("${app.cache.redis.host}") String host,
+                                                     @Value("${app.cache.redis.port}") int port) {
+        return new CacheRedisConnection(host, port);
+    }
+
     @Bean
-    public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+    public RedisCacheManager cacheManager(CacheRedisConnection cacheRedisConnection) {
         RedisCacheConfiguration base = RedisCacheConfiguration.defaultCacheConfig()
                 .prefixCacheNameWith(CACHE_KEY_VERSION)
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer()))
                 .disableCachingNullValues();
 
-        return RedisCacheManager.builder(connectionFactory)
+        return RedisCacheManager.builder(cacheRedisConnection.connectionFactory())
                 .cacheDefaults(base.entryTtl(Duration.ofHours(1)))
                 .withInitialCacheConfigurations(Map.of(
                         CacheNames.TMDB_SEARCH, base.entryTtl(Duration.ofMinutes(15)),
