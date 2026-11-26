@@ -1,30 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Used instead of ~/.m2/settings.xml (see .mvn/maven.config), so a machine-wide mirror can't
+     redirect this build; every dependency comes from Maven Central. -->
 <settings xmlns="http://maven.apache.org/SETTINGS/1.1.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.1.0 http://maven.apache.org/xsd/settings-1.1.0.xsd">
-
-  <profiles>
-    <profile>
-      <id>spring-releases</id>
-      <activation><activeByDefault>true</activeByDefault></activation>
-      <repositories>
-        <repository>
-          <id>spring-releases</id>
-          <name>Spring Releases</name>
-          <url>https://repo.spring.io/release</url>
-          <snapshots><enabled>false</enabled></snapshots>
-        </repository>
-      </repositories>
-      <pluginRepositories>
-        <pluginRepository>
-          <id>spring-releases</id>
-          <name>Spring Releases</name>
-          <url>https://repo.spring.io/release</url>
-          <snapshots><enabled>false</enabled></snapshots>
-        </pluginRepository>
-      </pluginRepositories>
-    </profile>
-  </profiles>
-
 </settings>
-
