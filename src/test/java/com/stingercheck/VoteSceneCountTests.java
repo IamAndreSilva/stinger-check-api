@@ -123,6 +123,17 @@ class VoteSceneCountTests {
         setCount(token, "5").andExpect(status().isBadRequest());
     }
 
+    @Test
+    void nullBodyIsRejected() throws Exception {
+        castVote(token, true);
+
+        mockMvc.perform(put(VOTE_URL + "/scene-count")
+                        .header("X-Anonymous-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("null"))
+                .andExpect(status().isBadRequest());
+    }
+
     // Three "yes" voters; one IP may only add two new anonymous votes to a movie per day.
     private String[] votersFromTwoAddresses() throws Exception {
         String[] voters = {token, UUID.randomUUID().toString(), UUID.randomUUID().toString()};
