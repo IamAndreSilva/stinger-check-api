@@ -30,6 +30,8 @@ public class OAuthFailureHandler implements AuthenticationFailureHandler {
     // without a sign-in in progress (an expired session, a reload, or a forged request).
     private static final Set<String> EXPECTED_ERROR_CODES = Set.of("access_denied", "authorization_request_not_found");
 
+    private static final int MAX_LOGGED_LENGTH = 100;
+
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
@@ -37,12 +39,22 @@ public class OAuthFailureHandler implements AuthenticationFailureHandler {
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response,
                                         AuthenticationException exception) throws IOException {
         if (isExpected(exception)) {
-            log.debug("Sign-in not completed: {}", exception.getMessage());
+            log.debug("Sign-in not completed: {}", describe(exception));
         } else {
-            log.warn("Sign-in failed: {}", exception.getMessage());
+            log.warn("Sign-in failed: {}", describe(exception));
         }
 
         response.sendRedirect(frontendUrl + ReturnToAuthorizationRequestResolver.takeReturnPath(request));
+    }
+
+    // The error code comes from the callback URL, so anyone can choose it: keep it short and on
+    // one line, so it can't forge log lines.
+    private static String describe(AuthenticationException exception) {
+        String reason = exception instanceof OAuth2AuthenticationException oauthException
+                ? oauthException.getError().getErrorCode()
+                : exception.getClass().getSimpleName();
+        String printable = String.valueOf(reason).replaceAll("\\p{Cntrl}", "?");
+        return printable.length() > MAX_LOGGED_LENGTH ? printable.substring(0, MAX_LOGGED_LENGTH) + "…" : printable;
     }
 
     private static boolean isExpected(AuthenticationException exception) {
