@@ -81,7 +81,7 @@ class CacheTtlTests {
     }
 
     private static byte[] key(String cacheName, int id) {
-        return ("v2:" + cacheName + "::" + id).getBytes(StandardCharsets.UTF_8);
+        return (RedisConfig.CACHE_KEY_VERSION + cacheName + "::" + id).getBytes(StandardCharsets.UTF_8);
     }
 
     private static TmdbMovieResult movie(int id, String releaseDate) {
