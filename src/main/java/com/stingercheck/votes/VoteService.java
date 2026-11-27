@@ -34,6 +34,8 @@ public class VoteService {
     static final int NEW_ANONYMOUS_VOTES_PER_IP_PER_MOVIE_PER_DAY = 2;
     private static final Duration DAY = Duration.ofDays(1);
 
+    private static final String NEEDS_YES_VOTE = "Vote yes before adding a scene count";
+
     private final VoteRepository voteRepository;
     private final VoteAttemptRepository voteAttemptRepository;
     private final UserRepository userRepository;
@@ -136,9 +138,11 @@ public class VoteService {
         }
 
         Vote vote = own.filter(v -> Boolean.TRUE.equals(v.getHasStinger()))
-                .orElseThrow(() -> new BadRequestException("Vote yes before adding a scene count"));
-        vote.setSceneCount(sceneCount);
-        voteRepository.saveAndFlush(vote);
+                .orElseThrow(() -> new BadRequestException(NEEDS_YES_VOTE));
+        // Zero rows: the vote changed to "no" since it was read.
+        if (voteRepository.setSceneCountOfYesVote(vote.getId(), sceneCount) == 0) {
+            throw new BadRequestException(NEEDS_YES_VOTE);
+        }
 
         if (user != null) {
             return buildSummary(tmdbMovieId, null, user.getId());

@@ -1,5 +1,6 @@
 package com.stingercheck.config;
 
+import com.stingercheck.auth.OAuthFailureHandler;
 import com.stingercheck.auth.OAuthSuccessHandler;
 import com.stingercheck.auth.ReturnToAuthorizationRequestResolver;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,12 +30,14 @@ public class SecurityConfig {
     private static final String OAUTH_REDIRECTION_BASE_URI = "/api/login/oauth2/code/*";
 
     private final OAuthSuccessHandler oAuthSuccessHandler;
+    private final OAuthFailureHandler oAuthFailureHandler;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
-    public SecurityConfig(OAuthSuccessHandler oAuthSuccessHandler) {
+    public SecurityConfig(OAuthSuccessHandler oAuthSuccessHandler, OAuthFailureHandler oAuthFailureHandler) {
         this.oAuthSuccessHandler = oAuthSuccessHandler;
+        this.oAuthFailureHandler = oAuthFailureHandler;
     }
 
     @Bean
@@ -71,6 +74,7 @@ public class SecurityConfig {
                                         clientRegistrationRepository, OAUTH_AUTHORIZATION_BASE_URI)))
                         .redirectionEndpoint(endpoint -> endpoint.baseUri(OAUTH_REDIRECTION_BASE_URI))
                         .successHandler(oAuthSuccessHandler)
+                        .failureHandler(oAuthFailureHandler)
                 )
                 .build();
     }

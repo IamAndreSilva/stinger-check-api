@@ -35,6 +35,14 @@ class SessionCreationTests {
                 .andExpect(cookie().doesNotExist(SESSION_COOKIE));
     }
 
+    // Anyone can call the callback URL; Spring's default failure handler stored the error in a new session.
+    @Test
+    void callbackWithoutASignInInProgressCreatesNoSession() throws Exception {
+        mockMvc.perform(get("/api/login/oauth2/code/google").param("code", "made-up").param("state", "made-up"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(cookie().doesNotExist(SESSION_COOKIE));
+    }
+
     // Shows the check above can fail: the OAuth flow keeps its state in the session.
     @Test
     void startingASignInCreatesASession() throws Exception {

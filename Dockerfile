@@ -14,4 +14,5 @@ WORKDIR /app
 COPY --from=build /build/target/stinger-check-api-*.jar app.jar
 USER 10001
 EXPOSE 8080
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
+# Out of memory: exit so Kubernetes restarts the pod, rather than keep running in a broken state.
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-XX:+ExitOnOutOfMemoryError", "-jar", "/app/app.jar"]
