@@ -34,6 +34,12 @@ spec:
             # Pages are rendered here and fetch movie data from the API inside the cluster.
             - name: API_URL
               value: http://api:8080
+          # Traefik keeps routing to a pod for a moment after it is marked for removal. Waiting
+          # before the app starts shutting down lets those requests land instead of getting 502s.
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
           readinessProbe:
             httpGet:
               path: /healthz

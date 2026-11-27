@@ -53,6 +53,12 @@ spec:
                 secretKeyRef:
                   name: stinger-check-secrets
                   key: GOOGLE_CLIENT_SECRET
+          # Traefik keeps routing to a pod for a moment after it is marked for removal. Waiting
+          # before the app starts shutting down lets those requests land instead of getting 502s.
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
           startupProbe:
             httpGet:
               path: /actuator/health/liveness
