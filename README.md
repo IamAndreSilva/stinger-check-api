@@ -111,7 +111,7 @@ Manifests live in `k8s/` and are applied with Kustomize. They run the API, the U
 |---|---|
 | `k8s/base` | Workloads shared by every environment |
 | `k8s/overlays/local` | Local cluster (minikube/kind), placeholder secrets, no ingress |
-| `k8s/overlays/prod` | Ingress with TLS: `/api` goes to the API, everything else to the UI. Per-IP rate limits (Traefik): 20 requests/s (burst 100) on every route, 5/s (burst 30) on `/api/movies` and `/movies` pages, which can make TMDB calls |
+| `k8s/overlays/prod` | Ingress with TLS: `/api` goes to the API, everything else to the UI. Per-IP rate limits (Traefik): 20 requests/s (burst 100) on every route, 5/s (burst 30) on `/api/movies` and `/movies` pages, which can make TMDB calls, and 10/min (burst 10) on the sign-in routes, which each create a session |
 | `k8s/cluster` | One-off cluster setup for k3s: Let's Encrypt issuer and Traefik settings |
 
 ### Local cluster
