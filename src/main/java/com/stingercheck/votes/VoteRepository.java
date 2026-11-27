@@ -52,6 +52,12 @@ public interface VoteRepository extends JpaRepository<Vote, UUID> {
     int upsertUserVote(@Param("movieId") Integer tmdbMovieId, @Param("userId") UUID userId,
                        @Param("hasStinger") boolean hasStinger, @Param("ip") String ipAddress);
 
+    // Only the count, and only while the vote is still a "yes": saving the whole entity could
+    // write back a "yes" that a concurrent switch to "no" had just replaced.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE Vote v SET v.sceneCount = :sceneCount WHERE v.id = :id AND v.hasStinger = true")
+    int setSceneCountOfYesVote(@Param("id") UUID id, @Param("sceneCount") Integer sceneCount);
+
     // Moves a browser's anonymous votes to the signed-in user, except for movies the user
     // already voted on (their signed-in vote wins; see deleteAnonymousVotes).
     @Modifying(flushAutomatically = true, clearAutomatically = true)

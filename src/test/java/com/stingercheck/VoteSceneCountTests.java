@@ -2,6 +2,8 @@ package com.stingercheck;
 
 import com.stingercheck.movies.TmdbClient;
 import com.stingercheck.movies.TmdbMovieResult;
+import com.stingercheck.votes.Vote;
+import com.stingercheck.votes.VoteRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -31,6 +34,9 @@ class VoteSceneCountTests {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private VoteRepository voteRepository;
 
     @MockitoBean
     private TmdbClient tmdbClient;
@@ -121,6 +127,21 @@ class VoteSceneCountTests {
         castVote(token, true);
         setCount(token, "0").andExpect(status().isBadRequest());
         setCount(token, "5").andExpect(status().isBadRequest());
+    }
+
+    // The vote is read first; a switch to "no" can land before the count is written.
+    @Test
+    void countDoesNotOverwriteAConcurrentSwitchToNo() throws Exception {
+        castVote(token, true);
+        Vote readBeforeTheSwitch = voteRepository.findByTmdbMovieIdAndAnonymousToken(999_010, token).orElseThrow();
+        castVote(token, false);
+
+        int updated = voteRepository.setSceneCountOfYesVote(readBeforeTheSwitch.getId(), 2);
+
+        Vote vote = voteRepository.findByTmdbMovieIdAndAnonymousToken(999_010, token).orElseThrow();
+        assertThat(updated).isZero();
+        assertThat(vote.getHasStinger()).isFalse();
+        assertThat(vote.getSceneCount()).isNull();
     }
 
     @Test
